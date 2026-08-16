@@ -74,6 +74,14 @@
 	white-space: normal;
 }
 
+.vault-assistant-msg-body.markdown-rendered > :first-child {
+	margin-block-start: 0;
+}
+
+.vault-assistant-msg-body.markdown-rendered > :last-child {
+	margin-block-end: 0;
+}
+
 .vault-assistant-proposal {
 	padding: var(--size-4-3);
 	border-radius: var(--radius-m);
@@ -182,8 +190,48 @@
 	color: var(--text-muted);
 }
 
+body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-content {
+	padding: 0;
+	overflow: hidden;
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-header {
+	padding: var(--size-4-4);
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-header h2 {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-msg {
+	padding: var(--size-4-4);
+	gap: var(--size-4-2);
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-composer {
+	padding-left: max(var(--size-4-4), env(safe-area-inset-left, 0px));
+	padding-right: max(var(--size-4-4), env(safe-area-inset-right, 0px));
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-composer textarea {
+	min-height: 3em;
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-composer-add {
+	flex: 1;
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-composer-add button {
+	flex: 1;
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-header button,
 .vault-assistant-root.is-mobile .vault-assistant-composer-add button,
 .vault-assistant-root.is-mobile .vault-assistant-composer-send button,
+.vault-assistant-root.is-mobile .vault-assistant-proposal-actions button,
 .vault-assistant-root.is-mobile .vault-assistant-chip-remove {
 	min-height: 44px;
 	min-width: 44px;
