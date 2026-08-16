@@ -41,12 +41,18 @@ Source lives in `src/`. `src/main.ts` only handles plugin lifecycle. TypeScript 
 
 ## Release
 
-Release artifacts: `main.js`, `manifest.json`, and `styles.css`. Do not commit `main.js`, `data.json`, or `search-index.json`.
+Release artifacts: `main.js`, `manifest.json`, and `styles.css`. Do not commit `main.js`, `data.json`, or `search-index.json`. Do not attach locally built assets; GitHub Actions builds and attests them.
 
-1. Set `version` in `manifest.json` (SemVer `x.y.z`) and the matching `minAppVersion`.
-2. Update [CHANGELOG.md](./CHANGELOG.md) (Keep a Changelog): move items from Unreleased into a dated version section and refresh the compare links at the bottom.
-3. Run `npm version patch` (or minor/major) so `package.json`, `manifest.json`, and `versions.json` stay in sync.
-4. Create a GitHub release whose tag equals the version (no `v` prefix).
-5. Attach `main.js`, `manifest.json`, and `styles.css` as release assets.
+1. Update [CHANGELOG.md](./CHANGELOG.md) (Keep a Changelog): move items from Unreleased into a dated version section and refresh the compare links at the bottom.
+2. Run `npm version patch` (or minor/major) so `package.json`, `manifest.json`, and `versions.json` stay in sync. That creates a local commit and tag (`x.y.z`, no `v` prefix).
+3. Push the commit and tag:
+   ```bash
+   git push origin main
+   git push origin 1.0.2
+   ```
+4. Wait for the **Release Obsidian plugin** workflow. It builds, signs provenance for the three assets, and opens a **draft** GitHub release.
+5. Edit the draft notes if needed, then publish the release.
 
 The community directory uses `manifest.json` on the default branch and downloads those assets from the GitHub release whose tag matches `version`. The plugin `id` must stay unique and must not contain `obsidian`.
+
+First time only: in the GitHub repo, **Settings → Actions → General → Workflow permissions**, enable **Read and write permissions**. The workflow also needs `id-token` and `attestations` (already set in `.github/workflows/release.yml`).
