@@ -195,8 +195,17 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 	overflow: hidden;
 }
 
+.vault-assistant-root.is-mobile {
+	height: calc(100% - var(--vault-assistant-keyboard-inset, var(--keyboard-height, 0px)));
+	max-height: 100%;
+}
+
 .vault-assistant-root.is-mobile .vault-assistant-header {
 	padding: var(--size-4-4);
+}
+
+.vault-assistant-root.is-mobile.is-keyboard-open .vault-assistant-header {
+	display: none;
 }
 
 .vault-assistant-root.is-mobile .vault-assistant-header h2 {
@@ -216,8 +225,13 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 	padding-right: max(var(--size-4-4), env(safe-area-inset-right, 0px));
 }
 
+.vault-assistant-root.is-mobile.is-keyboard-open .vault-assistant-composer {
+	padding-bottom: var(--size-4-3);
+}
+
 .vault-assistant-root.is-mobile .vault-assistant-composer textarea {
 	min-height: 3em;
+	resize: none;
 }
 
 .vault-assistant-root.is-mobile .vault-assistant-composer-add {

@@ -49,6 +49,7 @@ Ollama must expose `/v1/chat/completions`. Models that cannot use tools still an
 ## Mobile
 
 - Enter inserts a newline. Use **Send** to submit.
+- Use **Done** or tap the transcript to hide the keyboard. **Send** still submits.
 - Use **Add note** and **Add open note**. The `[[` picker does not open on a phone, so the keyboard stays focused.
 - `localhost` Ollama is usually unreachable from a phone. Set a reachable URL, or use OpenAI / OpenRouter.
 
