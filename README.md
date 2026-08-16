@@ -4,7 +4,7 @@ Chat with an OpenAI-compatible model about your Obsidian vault. Search stays on 
 
 ![Vault Assistant chat in the sidebar, answering a question about a referenced note](./screenshot.png)
 
-Requires Obsidian 1.7.2+.
+Requires Obsidian 1.13.0+.
 
 ## Features
 
@@ -59,5 +59,7 @@ Ollama must expose `/v1/chat/completions`. Models that cannot use tools still an
 - **Chat** sends your prompt, retrieved chunks, conversation history, notes you explicitly reference, and any note the assistant reads. The whole vault is not uploaded.
 - There is no telemetry. Network calls happen only for chat, model detection, and connection tests.
 - Use Ollama on localhost if you do not want notes to leave the machine.
+
+See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
 Developers: see [DEVELOPMENT.md](./DEVELOPMENT.md).

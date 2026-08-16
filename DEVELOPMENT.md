@@ -44,8 +44,9 @@ Source lives in `src/`. `src/main.ts` only handles plugin lifecycle. TypeScript 
 Release artifacts: `main.js`, `manifest.json`, and `styles.css`. Do not commit `main.js`, `data.json`, or `search-index.json`.
 
 1. Set `version` in `manifest.json` (SemVer `x.y.z`) and the matching `minAppVersion`.
-2. Run `npm version patch` (or minor/major) so `package.json`, `manifest.json`, and `versions.json` stay in sync.
-3. Create a GitHub release whose tag equals the version (no `v` prefix).
-4. Attach `main.js`, `manifest.json`, and `styles.css` as release assets.
+2. Update [CHANGELOG.md](./CHANGELOG.md) (Keep a Changelog): move items from Unreleased into a dated version section and refresh the compare links at the bottom.
+3. Run `npm version patch` (or minor/major) so `package.json`, `manifest.json`, and `versions.json` stay in sync.
+4. Create a GitHub release whose tag equals the version (no `v` prefix).
+5. Attach `main.js`, `manifest.json`, and `styles.css` as release assets.
 
 The community directory uses `manifest.json` on the default branch and downloads those assets from the GitHub release whose tag matches `version`. The plugin `id` must stay unique and must not contain `obsidian`.
