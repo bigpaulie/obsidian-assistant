@@ -190,14 +190,14 @@
 	color: var(--text-muted);
 }
 
+body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] {
+	padding-bottom: max(var(--vault-assistant-keyboard-inset, 0px), var(--keyboard-height, 0px));
+	box-sizing: border-box;
+}
+
 body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-content {
 	padding: 0;
 	overflow: hidden;
-}
-
-.vault-assistant-root.is-mobile {
-	height: calc(100% - var(--vault-assistant-keyboard-inset, var(--keyboard-height, 0px)));
-	max-height: 100%;
 }
 
 .vault-assistant-root.is-mobile .vault-assistant-header {
