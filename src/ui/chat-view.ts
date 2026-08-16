@@ -66,7 +66,7 @@ export class ChatView extends ItemView {
 		this.chipsEl.hide();
 		this.inputEl = composer.createEl('textarea', {
 			attr: {
-				rows: '3',
+				rows: Platform.isMobile ? '2' : '3',
 				placeholder: Platform.isMobile
 					? 'Ask about your notes.'
 					: 'Ask about your notes. Type [[ to add a note.',
