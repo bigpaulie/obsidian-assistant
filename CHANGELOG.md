@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-08-16
+
+### Fixed
+
+- Mobile composer follows Obsidian’s `--keyboard-height` (and visualViewport when it changes) by padding the chat leaf, so the field stays above the iOS keyboard.
+
 ## [1.1.1] - 2026-08-16
 
 ### Fixed
@@ -46,7 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.1...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.2...HEAD
+[1.1.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.1...1.1.2
 [1.1.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.0.2...1.1.0
 [1.0.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.0.1...1.0.2

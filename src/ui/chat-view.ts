@@ -115,6 +115,8 @@ export class ChatView extends ItemView {
 	async onClose(): Promise<void> {
 		this.stop();
 		this.messagesHost.unload();
+		this.containerEl.style.removeProperty('--vault-assistant-keyboard-inset');
+		this.contentEl.removeClass('is-keyboard-open');
 	}
 
 	private resetChat(): void {
@@ -215,6 +217,12 @@ export class ChatView extends ItemView {
 				vv.removeEventListener('scroll', sync);
 			});
 		}
+		const keyboardObserver = new MutationObserver(sync);
+		keyboardObserver.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['style'],
+		});
+		this.register(() => keyboardObserver.disconnect());
 		this.registerDomEvent(this.inputEl, 'focus', () => {
 			this.doneBtn?.show();
 			sync();
@@ -238,20 +246,30 @@ export class ChatView extends ItemView {
 		if (!Platform.isMobile) {
 			return;
 		}
-		const root = this.contentEl;
 		const inset = this.mobileKeyboardInset();
 		const open = inset > MOBILE_KEYBOARD_INSET_THRESHOLD;
-		root.toggleClass('is-keyboard-open', open);
-		root.style.setProperty('--vault-assistant-keyboard-inset', open ? `${inset}px` : '0px');
+		this.contentEl.toggleClass('is-keyboard-open', open);
+		if (open) {
+			this.containerEl.style.setProperty('--vault-assistant-keyboard-inset', `${inset}px`);
+		} else {
+			this.containerEl.style.removeProperty('--vault-assistant-keyboard-inset');
+		}
+		if (this.inputEl === document.activeElement) {
+			window.requestAnimationFrame(() => {
+				this.inputEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			});
+		}
 	}
 
 	private mobileKeyboardInset(): number {
+		let viewportInset = 0;
 		const vv = window.visualViewport;
 		if (vv) {
-			return Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+			viewportInset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
 		}
-		const raw = getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height');
-		return parseFloat(raw) || 0;
+		const obsidianInset =
+			parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height')) || 0;
+		return Math.max(viewportInset, obsidianInset);
 	}
 
 	private maybeOpenWikiSuggest(): void {
