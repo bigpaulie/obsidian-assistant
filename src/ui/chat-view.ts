@@ -9,12 +9,15 @@ import { getOpenMarkdownFiles } from '../vault/notes';
 import { renderApplyCard } from './apply-card';
 import { NoteSuggestModal, wikilinkFor } from './note-suggest';
 
+const MOBILE_KEYBOARD_INSET_THRESHOLD = 50;
+
 export class ChatView extends ItemView {
 	private messagesEl!: HTMLElement;
 	private chipsEl!: HTMLElement;
 	private inputEl!: HTMLTextAreaElement;
 	private sendBtn!: HTMLButtonElement;
 	private stopBtn!: HTMLButtonElement;
+	private doneBtn?: HTMLButtonElement;
 	private addNoteBtn!: HTMLButtonElement;
 	private addOpenNoteBtn!: HTMLButtonElement;
 	private messagesHost = new Component();
@@ -77,6 +80,11 @@ export class ChatView extends ItemView {
 		this.addNoteBtn = addGroup.createEl('button', { text: 'Add note' });
 		this.addOpenNoteBtn = addGroup.createEl('button', { text: 'Add open note' });
 		const sendGroup = buttons.createDiv({ cls: 'vault-assistant-composer-send' });
+		if (Platform.isMobile) {
+			this.doneBtn = sendGroup.createEl('button', { text: 'Done' });
+			this.doneBtn.setAttr('aria-label', 'Hide keyboard');
+			this.doneBtn.hide();
+		}
 		this.stopBtn = sendGroup.createEl('button', { text: 'Stop' });
 		this.stopBtn.hide();
 		this.sendBtn = sendGroup.createEl('button', { cls: 'mod-cta', text: 'Send' });
@@ -96,7 +104,11 @@ export class ChatView extends ItemView {
 		});
 		this.registerDomEvent(this.inputEl, 'input', () => this.maybeOpenWikiSuggest());
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateOpenNoteButton()));
-		this.registerEvent(this.app.workspace.on('layout-change', () => this.updateOpenNoteButton()));
+		this.registerEvent(this.app.workspace.on('layout-change', () => {
+			this.updateOpenNoteButton();
+			this.syncMobileKeyboard();
+		}));
+		this.setupMobileKeyboard();
 		this.updateOpenNoteButton();
 	}
 
@@ -189,6 +201,59 @@ export class ChatView extends ItemView {
 		}
 	}
 
+	private setupMobileKeyboard(): void {
+		if (!Platform.isMobile) {
+			return;
+		}
+		const sync = (): void => this.syncMobileKeyboard();
+		const vv = window.visualViewport;
+		if (vv) {
+			vv.addEventListener('resize', sync);
+			vv.addEventListener('scroll', sync);
+			this.register(() => {
+				vv.removeEventListener('resize', sync);
+				vv.removeEventListener('scroll', sync);
+			});
+		}
+		this.registerDomEvent(this.inputEl, 'focus', () => {
+			this.doneBtn?.show();
+			sync();
+		});
+		this.registerDomEvent(this.inputEl, 'blur', () => {
+			this.doneBtn?.hide();
+			sync();
+		});
+		this.registerDomEvent(this.messagesEl, 'click', () => {
+			this.inputEl.blur();
+		});
+		if (this.doneBtn) {
+			this.registerDomEvent(this.doneBtn, 'click', () => {
+				this.inputEl.blur();
+			});
+		}
+		sync();
+	}
+
+	private syncMobileKeyboard(): void {
+		if (!Platform.isMobile) {
+			return;
+		}
+		const root = this.contentEl;
+		const inset = this.mobileKeyboardInset();
+		const open = inset > MOBILE_KEYBOARD_INSET_THRESHOLD;
+		root.toggleClass('is-keyboard-open', open);
+		root.style.setProperty('--vault-assistant-keyboard-inset', open ? `${inset}px` : '0px');
+	}
+
+	private mobileKeyboardInset(): number {
+		const vv = window.visualViewport;
+		if (vv) {
+			return Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+		}
+		const raw = getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height');
+		return parseFloat(raw) || 0;
+	}
+
 	private maybeOpenWikiSuggest(): void {
 		if (Platform.isMobile || this.suggestOpen || this.running) {
 			return;
@@ -262,6 +327,9 @@ export class ChatView extends ItemView {
 		}
 
 		this.inputEl.value = '';
+		if (Platform.isMobile) {
+			this.inputEl.blur();
+		}
 		if (this.messagesEl.querySelector('.vault-assistant-empty')) {
 			this.messagesEl.empty();
 		}
@@ -311,6 +379,7 @@ export class ChatView extends ItemView {
 			this.addNoteBtn.setAttr('disabled', 'true');
 			this.addOpenNoteBtn.setAttr('disabled', 'true');
 			this.inputEl.setAttr('disabled', 'true');
+			this.doneBtn?.hide();
 		} else {
 			this.addNoteBtn.removeAttribute('disabled');
 			this.inputEl.removeAttribute('disabled');
