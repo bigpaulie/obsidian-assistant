@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-16
+
+### Added
+
+- GitHub Actions release workflow that builds `main.js` and publishes signed artifact attestations for `main.js`, `manifest.json`, and `styles.css`.
+
+### Changed
+
+- Privacy notes now state that local search lists markdown note paths, and that network calls go only to the chosen provider.
+
 ## [1.0.1] - 2026-08-16
 
 ### Changed
@@ -24,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.0.1...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.0.2...HEAD
+[1.0.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/bigpaulie/obsidian-assistant/releases/tag/1.0.0
