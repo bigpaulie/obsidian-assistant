@@ -31,17 +31,25 @@
 }
 
 .vault-assistant-empty,
-.vault-assistant-status,
-.vault-assistant-error {
+.vault-assistant-status {
 	padding: var(--size-4-3);
 	border-radius: var(--radius-m);
 	color: var(--text-muted);
 	background-color: var(--background-secondary);
 }
 
-.vault-assistant-error {
-	color: var(--text-error);
-	background-color: var(--background-modifier-error);
+.vault-assistant-log {
+	margin: var(--size-2-2) 0 0;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	color: var(--text-normal);
+	font-family: var(--font-text);
+	font-size: var(--font-ui-small);
+	background-color: transparent;
+}
+
+.vault-assistant-status button {
+	margin-top: var(--size-4-2);
 }
 
 .vault-assistant-msg {
@@ -191,7 +199,7 @@
 }
 
 body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] {
-	padding-bottom: max(var(--vault-assistant-keyboard-inset, 0px), var(--keyboard-height, 0px));
+	padding-bottom: var(--vault-assistant-keyboard-inset, 0px);
 	box-sizing: border-box;
 }
 
@@ -234,6 +242,10 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 	resize: none;
 }
 
+.vault-assistant-root.is-mobile.is-keyboard-open .vault-assistant-composer-add {
+	display: none;
+}
+
 .vault-assistant-root.is-mobile .vault-assistant-composer-add {
 	flex: 1;
 }
@@ -246,7 +258,8 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 .vault-assistant-root.is-mobile .vault-assistant-composer-add button,
 .vault-assistant-root.is-mobile .vault-assistant-composer-send button,
 .vault-assistant-root.is-mobile .vault-assistant-proposal-actions button,
-.vault-assistant-root.is-mobile .vault-assistant-chip-remove {
+.vault-assistant-root.is-mobile .vault-assistant-chip-remove,
+.vault-assistant-root.is-mobile .vault-assistant-status button {
 	min-height: 44px;
 	min-width: 44px;
 }

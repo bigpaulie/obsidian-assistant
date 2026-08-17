@@ -2,6 +2,8 @@ import { requestUrl } from 'obsidian';
 import { DEFAULT_OLLAMA_URL } from '../constants';
 import type { VaultAssistantSettings } from '../settings';
 import { isRecord } from '../utils';
+import { EMPTY_MODEL_REPLY, LlmError, errorMessage, sanitizeErrorText } from './errors';
+import { completionSampling } from './model-params';
 import { getApiKeyForProvider, normalizeServerUrl, resolveProviderConfig } from './providers';
 import type {
 	ChatCompletionRequest,
@@ -10,15 +12,7 @@ import type {
 	ModelListResponse,
 } from './types';
 
-export class LlmError extends Error {
-	constructor(
-		message: string,
-		readonly status?: number,
-	) {
-		super(message);
-		this.name = 'LlmError';
-	}
-}
+export { EMPTY_MODEL_REPLY, LlmError, errorMessage, formatChatError, isLikelyToolsUnsupported } from './errors';
 
 /**
  * Thin OpenAI-compatible client using Obsidian `requestUrl` (CORS-safe).
@@ -30,23 +24,42 @@ export class LlmClient {
 	async chat(request: ChatCompletionRequest): Promise<ChatMessage> {
 		this.assertReady();
 		const config = resolveProviderConfig(this.settings);
+		const sampling = completionSampling(
+			request.model,
+			request.temperature ?? 0,
+			request.max_tokens ?? 2048,
+		);
 		const body: ChatCompletionRequest = {
 			model: request.model,
 			messages: request.messages,
-			temperature: request.temperature,
-			max_tokens: request.max_tokens,
+			...sampling,
 		};
 		if (request.tools && request.tools.length > 0) {
 			body.tools = request.tools;
 		}
 
-		const json = await this.postJson(`${config.apiBaseUrl}/chat/completions`, body);
-		const parsed = json as ChatCompletionResponse;
-		const message = parsed.choices?.[0]?.message;
-		if (!message) {
-			throw new LlmError(apiErrorMessage(parsed) || 'The model returned an empty response.');
+		const debug = {
+			provider: config.id,
+			model: request.model,
+			endpoint: `${config.apiBaseUrl}/chat/completions`,
+			sampling: Object.keys(sampling).join(',') || 'none',
+			tools: Boolean(body.tools),
+		};
+
+		try {
+			const json = await this.postJson(`${config.apiBaseUrl}/chat/completions`, body);
+			const parsed = json as ChatCompletionResponse;
+			const message = parsed.choices?.[0]?.message;
+			if (!message) {
+				throw new LlmError(apiErrorMessage(parsed) || EMPTY_MODEL_REPLY, undefined, debug);
+			}
+			return message;
+		} catch (error) {
+			if (error instanceof LlmError) {
+				throw new LlmError(error.message, error.status, { ...debug, ...error.debug });
+			}
+			throw error;
 		}
-		return message;
 	}
 
 	async listModels(): Promise<string[]> {
@@ -116,7 +129,11 @@ function parseResponse(status: number, text: string): unknown {
 		}
 	}
 	if (status >= 400) {
-		throw new LlmError(apiErrorMessage(json) || `Provider request failed (${status}).`, status);
+		const excerpt = text.trim() ? sanitizeErrorText(text.trim().slice(0, 800)) : '';
+		throw new LlmError(apiErrorMessage(json) || excerpt || `Provider request failed (${status}).`, status, {
+			httpStatus: status,
+			body: excerpt,
+		});
 	}
 	if (json === undefined) {
 		throw new LlmError('Provider returned a non-JSON response.');
@@ -128,32 +145,21 @@ function apiErrorMessage(json: unknown): string | undefined {
 	if (!isRecord(json)) {
 		return undefined;
 	}
-	if (isRecord(json.error) && typeof json.error.message === 'string') {
-		return sanitizeErrorText(json.error.message);
+	if (typeof json.error === 'string' && json.error.trim()) {
+		return sanitizeErrorText(json.error);
 	}
-	if (typeof json.message === 'string') {
+	if (isRecord(json.error)) {
+		if (typeof json.error.message === 'string' && json.error.message.trim()) {
+			return sanitizeErrorText(json.error.message);
+		}
+		try {
+			return sanitizeErrorText(JSON.stringify(json.error));
+		} catch {
+			return undefined;
+		}
+	}
+	if (typeof json.message === 'string' && json.message.trim()) {
 		return sanitizeErrorText(json.message);
 	}
 	return undefined;
-}
-
-function sanitizeErrorText(message: string): string {
-	return message.replace(/sk-[a-zA-Z0-9-_]+/g, '[redacted]');
-}
-
-export function errorMessage(error: unknown): string {
-	if (error instanceof Error) {
-		return sanitizeErrorText(error.message);
-	}
-	return 'Something went wrong.';
-}
-
-export function isLikelyToolsUnsupported(error: unknown): boolean {
-	const message = errorMessage(error).toLowerCase();
-	return (
-		message.includes('tool') ||
-		message.includes('function calling') ||
-		message.includes('functions') ||
-		message.includes('unknown parameter')
-	);
 }

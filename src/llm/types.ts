@@ -29,6 +29,7 @@ export interface ChatCompletionRequest {
 	tools?: ChatTool[];
 	temperature?: number;
 	max_tokens?: number;
+	max_completion_tokens?: number;
 }
 
 export interface ChatCompletionChoice {
