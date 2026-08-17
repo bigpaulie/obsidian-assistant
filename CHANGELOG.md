@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-08-17
+
+### Fixed
+
+- Mobile composer sits on the keyboard instead of leaving a gap from stacked keyboard insets.
+- Chat errors use the same visible status card as “Thinking…”, with provider text and a **Copy details** button (no API keys).
+- OpenAI gpt-5, o-series, and gpt-4.1+ models send `max_completion_tokens` and omit unsupported `temperature`.
+
 ## [1.1.2] - 2026-08-16
 
 ### Fixed
@@ -52,7 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.2...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.3...HEAD
+[1.1.3]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.2...1.1.3
 [1.1.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.1...1.1.2
 [1.1.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.0.2...1.1.0

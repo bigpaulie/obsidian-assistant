@@ -1,5 +1,5 @@
 import { MAX_TOOL_ROUNDS } from '../constants';
-import { LlmClient, errorMessage, isLikelyToolsUnsupported } from '../llm/client';
+import { EMPTY_MODEL_REPLY, LlmClient, errorMessage, isLikelyToolsUnsupported } from '../llm/client';
 import type { ChatMessage, ChatToolCall } from '../llm/types';
 import type VaultAssistantPlugin from '../main';
 import { retrieveContext } from '../rag/retriever';
@@ -94,7 +94,7 @@ async function runWithTools(
 
 		const toolCalls = message.tool_calls?.filter((call) => call.function?.name);
 		if (!toolCalls || toolCalls.length === 0) {
-			const text = message.content?.trim() || 'Done.';
+			const text = message.content?.trim() || EMPTY_MODEL_REPLY;
 			messages.push({ role: 'assistant', content: text });
 			return { assistantText: text, proposals, messages };
 		}
@@ -147,7 +147,7 @@ async function runWithoutTools(
 		temperature: plugin.settings.temperature,
 		max_tokens: plugin.settings.maxTokens,
 	});
-	const text = message.content?.trim() || 'Done.';
+	const text = message.content?.trim() || EMPTY_MODEL_REPLY;
 	messages.push({ role: 'assistant', content: text });
 	return { assistantText: text, proposals: [], messages };
 }

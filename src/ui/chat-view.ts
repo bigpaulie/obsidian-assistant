@@ -2,7 +2,7 @@ import { Component, ItemView, MarkdownRenderer, Notice, Platform, TFile, Workspa
 import { runAgent } from '../agent/loop';
 import type { NoteProposal } from '../agent/tools';
 import { MAX_REFERENCED_NOTES, VIEW_TYPE_CHAT } from '../constants';
-import { errorMessage } from '../llm/client';
+import { formatChatError, LlmError } from '../llm/errors';
 import type { ChatMessage } from '../llm/types';
 import type VaultAssistantPlugin from '../main';
 import { getOpenMarkdownFiles } from '../vault/notes';
@@ -262,14 +262,15 @@ export class ChatView extends ItemView {
 	}
 
 	private mobileKeyboardInset(): number {
-		let viewportInset = 0;
 		const vv = window.visualViewport;
-		if (vv) {
-			viewportInset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+		if (!vv) {
+			return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height')) || 0;
 		}
-		const obsidianInset =
-			parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height')) || 0;
-		return Math.max(viewportInset, obsidianInset);
+		const rect = this.containerEl.getBoundingClientRect();
+		const currentPad = parseFloat(getComputedStyle(this.containerEl).paddingBottom) || 0;
+		const contentBottom = rect.bottom - currentPad;
+		const visibleBottom = vv.offsetTop + vv.height;
+		return Math.max(0, contentBottom - visibleBottom + currentPad);
 	}
 
 	private maybeOpenWikiSuggest(): void {
@@ -375,15 +376,57 @@ export class ChatView extends ItemView {
 			await this.appendAssistantMessage(result.assistantText, result.proposals);
 		} catch (error) {
 			status.remove();
-			this.messagesEl.createDiv({
-				cls: 'vault-assistant-error',
-				text: errorMessage(error),
-			});
+			try {
+				this.appendError(error);
+			} catch {
+				this.messagesEl.createDiv({
+					cls: 'vault-assistant-status',
+					text: error instanceof Error ? error.message : String(error),
+				});
+			}
 		} finally {
 			this.running = false;
 			this.setBusy(false);
 			this.scrollToBottom();
 		}
+	}
+
+	private appendError(error: unknown): void {
+		let summary = 'Something went wrong.';
+		let detail: string | undefined;
+		try {
+			const formatted = formatChatError(error);
+			summary = formatted.summary.trim() || summary;
+			detail = formatted.detail;
+		} catch {
+			summary = error instanceof Error ? error.message : String(error);
+		}
+		const status = error instanceof LlmError ? error.status : undefined;
+		const debug = error instanceof LlmError ? error.debug : undefined;
+		const lines = [
+			summary,
+			status ? `HTTP ${status}` : '',
+			detail && detail !== summary ? detail : '',
+			debug
+				? Object.entries(debug)
+						.filter(([, value]) => value !== undefined && value !== '')
+						.map(([key, value]) => `${key}: ${String(value)}`)
+						.join('\n')
+				: '',
+		].filter((line) => line.length > 0);
+		const text = lines.join('\n\n');
+		new Notice(summary, 15000);
+		const card = this.messagesEl.createDiv({ cls: 'vault-assistant-status' });
+		card.createDiv({ cls: 'vault-assistant-msg-label', text: 'Error' });
+		const log = card.createEl('pre', { cls: 'vault-assistant-log' });
+		log.setText(text);
+		const copy = card.createEl('button', { text: 'Copy details' });
+		this.registerDomEvent(copy, 'click', () => {
+			void window.navigator.clipboard.writeText(text).then(
+				() => new Notice('Copied error details.'),
+				() => new Notice(text, 20000),
+			);
+		});
 	}
 
 	private stop(): void {

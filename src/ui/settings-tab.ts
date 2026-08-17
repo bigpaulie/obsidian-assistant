@@ -121,7 +121,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 				items: [
 					{
 						name: 'Temperature',
-						desc: 'Lower values are more deterministic. Higher values are more varied.',
+						desc: 'Lower values are more deterministic. Higher values are more varied. Ignored by gpt-5 and o-series models.',
 						control: {
 							type: 'slider',
 							key: 'temperature',
