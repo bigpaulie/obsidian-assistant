@@ -212,6 +212,20 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 					},
 				],
 			},
+			{
+				type: 'group',
+				heading: 'Advanced',
+				items: [
+					{
+						name: 'Debug mode',
+						desc: 'Show extra request detail in chat and the developer console (Ctrl+Shift+I). Off by default. Never logs API keys or note contents.',
+						control: {
+							type: 'toggle',
+							key: 'debugMode',
+						},
+					},
+				],
+			},
 		];
 	}
 

@@ -2,6 +2,7 @@ import { Component, ItemView, MarkdownRenderer, Notice, Platform, TFile, Workspa
 import { runAgent } from '../agent/loop';
 import type { NoteProposal } from '../agent/tools';
 import { MAX_REFERENCED_NOTES, VIEW_TYPE_CHAT } from '../constants';
+import { formatDebugLines } from '../debug';
 import { formatChatError, LlmError } from '../llm/errors';
 import type { ChatMessage } from '../llm/types';
 import type VaultAssistantPlugin from '../main';
@@ -357,7 +358,20 @@ export class ChatView extends ItemView {
 		this.running = true;
 		this.cancelled = false;
 		this.setBusy(true);
-		const status = this.messagesEl.createDiv({ cls: 'vault-assistant-status', text: 'Thinking…' });
+		const debug = this.plugin.settings.debugMode;
+		let statusText = 'Thinking…';
+		const startedAt = Date.now();
+		const status = this.messagesEl.createDiv({ cls: 'vault-assistant-status', text: statusText });
+		const renderStatus = (): void => {
+			if (!debug) {
+				status.setText(statusText);
+				return;
+			}
+			const elapsed = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+			status.setText(`${statusText} (${elapsed}s)`);
+		};
+		const timer = debug ? window.setInterval(renderStatus, 1000) : null;
+		renderStatus();
 		this.scrollToBottom();
 
 		try {
@@ -366,6 +380,11 @@ export class ChatView extends ItemView {
 				userMessage: text,
 				referencedPaths: [...this.referenced.keys()],
 				cancelled: () => this.cancelled,
+				onStatus: (next) => {
+					statusText = next;
+					renderStatus();
+					this.scrollToBottom();
+				},
 			});
 			status.remove();
 			if (this.cancelled) {
@@ -374,6 +393,11 @@ export class ChatView extends ItemView {
 			}
 			this.history = toUiHistory(result.messages);
 			await this.appendAssistantMessage(result.assistantText, result.proposals);
+			if (debug) {
+				this.appendStatusCard('Debug', formatDebugLines(result.debug), {
+					copied: 'Copied debug details.',
+				});
+			}
 		} catch (error) {
 			status.remove();
 			try {
@@ -385,6 +409,9 @@ export class ChatView extends ItemView {
 				});
 			}
 		} finally {
+			if (timer !== null) {
+				window.clearInterval(timer);
+			}
 			this.running = false;
 			this.setBusy(false);
 			this.scrollToBottom();
@@ -407,23 +434,30 @@ export class ChatView extends ItemView {
 			summary,
 			status ? `HTTP ${status}` : '',
 			detail && detail !== summary ? detail : '',
-			debug
-				? Object.entries(debug)
-						.filter(([, value]) => value !== undefined && value !== '')
-						.map(([key, value]) => `${key}: ${String(value)}`)
-						.join('\n')
-				: '',
+			debug ? formatDebugLines(debug) : '',
 		].filter((line) => line.length > 0);
-		const text = lines.join('\n\n');
-		new Notice(summary, 15000);
+		this.appendStatusCard('Error', lines.join('\n\n'), {
+			notice: summary,
+			copied: 'Copied error details.',
+		});
+	}
+
+	private appendStatusCard(
+		label: string,
+		text: string,
+		options?: { notice?: string; copied?: string },
+	): void {
+		if (options?.notice) {
+			new Notice(options.notice, 15000);
+		}
 		const card = this.messagesEl.createDiv({ cls: 'vault-assistant-status' });
-		card.createDiv({ cls: 'vault-assistant-msg-label', text: 'Error' });
+		card.createDiv({ cls: 'vault-assistant-msg-label', text: label });
 		const log = card.createEl('pre', { cls: 'vault-assistant-log' });
 		log.setText(text);
 		const copy = card.createEl('button', { text: 'Copy details' });
 		this.registerDomEvent(copy, 'click', () => {
 			void window.navigator.clipboard.writeText(text).then(
-				() => new Notice('Copied error details.'),
+				() => new Notice(options?.copied ?? 'Copied details.'),
 				() => new Notice(text, 20000),
 			);
 		});

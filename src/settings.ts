@@ -16,6 +16,7 @@ export interface VaultAssistantSettings {
 	maxChunks: number;
 	excludeFolders: string;
 	privacyAcknowledged: boolean;
+	debugMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: VaultAssistantSettings = {
@@ -32,6 +33,7 @@ export const DEFAULT_SETTINGS: VaultAssistantSettings = {
 	maxChunks: 8,
 	excludeFolders: '',
 	privacyAcknowledged: false,
+	debugMode: false,
 };
 
 export const PROVIDER_LABELS: Record<ProviderId, string> = {

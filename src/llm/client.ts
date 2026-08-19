@@ -1,5 +1,6 @@
 import { requestUrl } from 'obsidian';
 import { DEFAULT_OLLAMA_URL } from '../constants';
+import { debugLog, type DebugPayload } from '../debug';
 import type { VaultAssistantSettings } from '../settings';
 import { isRecord } from '../utils';
 import { EMPTY_MODEL_REPLY, LlmError, errorMessage, sanitizeErrorText } from './errors';
@@ -14,6 +15,12 @@ import type {
 
 export { EMPTY_MODEL_REPLY, LlmError, errorMessage, formatChatError, isLikelyToolsUnsupported } from './errors';
 
+export interface ChatResult {
+	message: ChatMessage;
+	finishReason?: string;
+	durationMs: number;
+}
+
 /**
  * Thin OpenAI-compatible client using Obsidian `requestUrl` (CORS-safe).
  * Never logs request headers or API keys.
@@ -21,7 +28,7 @@ export { EMPTY_MODEL_REPLY, LlmError, errorMessage, formatChatError, isLikelyToo
 export class LlmClient {
 	constructor(private readonly settings: VaultAssistantSettings) {}
 
-	async chat(request: ChatCompletionRequest): Promise<ChatMessage> {
+	async chat(request: ChatCompletionRequest): Promise<ChatResult> {
 		this.assertReady();
 		const config = resolveProviderConfig(this.settings);
 		const sampling = completionSampling(
@@ -38,39 +45,66 @@ export class LlmClient {
 			body.tools = request.tools;
 		}
 
+		const endpoint = `${config.apiBaseUrl}/chat/completions`;
 		const debug = {
 			provider: config.id,
 			model: request.model,
-			endpoint: `${config.apiBaseUrl}/chat/completions`,
+			endpoint,
 			sampling: Object.keys(sampling).join(',') || 'none',
 			tools: Boolean(body.tools),
 		};
+		const startedAt = Date.now();
+		debugLog(this.settings, 'chat.start', debug);
 
 		try {
-			const json = await this.postJson(`${config.apiBaseUrl}/chat/completions`, body);
+			const { json, status } = await this.postJson(endpoint, body);
+			const durationMs = Date.now() - startedAt;
 			const parsed = json as ChatCompletionResponse;
-			const message = parsed.choices?.[0]?.message;
+			const choice = parsed.choices?.[0];
+			const message = choice?.message;
+			const meta = {
+				...debug,
+				httpStatus: status,
+				durationMs,
+				finishReason: choice?.finish_reason,
+				contentLength: message?.content?.length ?? 0,
+				toolCallCount: message?.tool_calls?.length ?? 0,
+			};
 			if (!message) {
-				throw new LlmError(apiErrorMessage(parsed) || EMPTY_MODEL_REPLY, undefined, debug);
+				throw new LlmError(apiErrorMessage(parsed) || EMPTY_MODEL_REPLY, undefined, meta);
 			}
-			return message;
+			debugLog(this.settings, 'chat.ok', meta);
+			return { message, finishReason: choice?.finish_reason, durationMs };
 		} catch (error) {
-			if (error instanceof LlmError) {
-				throw new LlmError(error.message, error.status, { ...debug, ...error.debug });
-			}
-			throw error;
+			throw this.wrapError(error, debug, startedAt);
 		}
 	}
 
 	async listModels(): Promise<string[]> {
 		this.assertReady();
 		const config = resolveProviderConfig(this.settings);
-		const json = await this.getJson(`${config.apiBaseUrl}/models`);
-		const parsed = json as ModelListResponse;
-		const ids = (parsed.data ?? [])
-			.map((item) => item.id)
-			.filter((id): id is string => typeof id === 'string' && id.length > 0);
-		return [...new Set(ids)].sort((a, b) => a.localeCompare(b));
+		const endpoint = `${config.apiBaseUrl}/models`;
+		const debug = { provider: config.id, endpoint };
+		const startedAt = Date.now();
+		debugLog(this.settings, 'models.start', debug);
+		try {
+			const { json, status } = await this.getJson(endpoint);
+			const durationMs = Date.now() - startedAt;
+			const parsed = json as ModelListResponse;
+			const ids = (parsed.data ?? [])
+				.map((item) => item.id)
+				.filter((id): id is string => typeof id === 'string' && id.length > 0);
+			const unique = [...new Set(ids)].sort((a, b) => a.localeCompare(b));
+			debugLog(this.settings, 'models.ok', {
+				...debug,
+				httpStatus: status,
+				durationMs,
+				modelCount: unique.length,
+			});
+			return unique;
+		} catch (error) {
+			throw this.wrapError(error, debug, startedAt);
+		}
 	}
 
 	async testConnection(): Promise<{ ok: true; modelCount: number } | { ok: false; message: string }> {
@@ -80,6 +114,20 @@ export class LlmClient {
 		} catch (error) {
 			return { ok: false, message: errorMessage(error) };
 		}
+	}
+
+	private wrapError(error: unknown, debug: DebugPayload, startedAt: number): LlmError {
+		const durationMs = Date.now() - startedAt;
+		const wrapped =
+			error instanceof LlmError
+				? new LlmError(error.message, error.status, { ...debug, ...error.debug, durationMs })
+				: new LlmError(errorMessage(error), undefined, { ...debug, durationMs });
+		debugLog(this.settings, 'request.error', {
+			error: wrapped.message,
+			status: wrapped.status,
+			...wrapped.debug,
+		});
+		return wrapped;
 	}
 
 	private assertReady(): void {
@@ -95,7 +143,7 @@ export class LlmClient {
 		}
 	}
 
-	private async postJson(url: string, body: unknown): Promise<unknown> {
+	private async postJson(url: string, body: unknown): Promise<{ json: unknown; status: number }> {
 		const config = resolveProviderConfig(this.settings);
 		const response = await requestUrl({
 			url,
@@ -104,10 +152,10 @@ export class LlmClient {
 			body: JSON.stringify(body),
 			throw: false,
 		});
-		return parseResponse(response.status, response.text);
+		return { json: parseResponse(response.status, response.text), status: response.status };
 	}
 
-	private async getJson(url: string): Promise<unknown> {
+	private async getJson(url: string): Promise<{ json: unknown; status: number }> {
 		const config = resolveProviderConfig(this.settings);
 		const response = await requestUrl({
 			url,
@@ -115,7 +163,7 @@ export class LlmClient {
 			headers: config.headers,
 			throw: false,
 		});
-		return parseResponse(response.status, response.text);
+		return { json: parseResponse(response.status, response.text), status: response.status };
 	}
 }
 
@@ -136,7 +184,7 @@ function parseResponse(status: number, text: string): unknown {
 		});
 	}
 	if (json === undefined) {
-		throw new LlmError('Provider returned a non-JSON response.');
+		throw new LlmError('Provider returned a non-JSON response.', status, { httpStatus: status });
 	}
 	return json;
 }
