@@ -46,9 +46,14 @@ export default class VaultAssistantPlugin extends Plugin {
 			id: 'rebuild-index',
 			name: 'Rebuild search index',
 			callback: () => {
-				void this.indexer.rebuild().then(() => {
-					new Notice(`Indexed ${this.indexer.chunkCount} chunks.`);
-				});
+				void this.indexer.rebuild().then(
+					() => {
+						new Notice(`Indexed ${this.indexer.chunkCount} chunks.`);
+					},
+					(error: unknown) => {
+						new Notice(error instanceof Error ? error.message : 'Unable to rebuild index.');
+					},
+				);
 			},
 		});
 

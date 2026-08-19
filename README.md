@@ -55,7 +55,7 @@ Ollama must expose `/v1/chat/completions`. Models that cannot use tools still an
 
 ## Privacy
 
-- **On this device:** API keys in the plugin `data.json`, and the search index in `search-index.json`. Keys are never logged.
+- **On this device:** API keys in the plugin `data.json`, and the search index in `search-index.json`. Keys are never logged. Optional **Debug mode** writes request metadata (provider, model, timing, status) to the local developer console and chat; it does not log API keys or note contents.
 - **Indexing** lists markdown note paths in the vault (`getMarkdownFiles`) so search can run locally. It does not send notes anywhere. Use **Exclude folders** to skip paths.
 - **Chat** sends your prompt, retrieved chunks, conversation history, notes you explicitly reference, and any note the assistant reads. The whole vault is not uploaded.
 - There is no telemetry. Network calls happen only when you chat, detect models, or test the connection, and only to the provider you chose (OpenAI, OpenRouter, or your Ollama URL).

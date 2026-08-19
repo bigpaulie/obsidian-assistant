@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-19
+
+### Added
+
+- Debug mode setting that shows request detail in chat and the developer console (no API keys or note contents).
+
 ## [1.1.3] - 2026-08-17
 
 ### Fixed
@@ -60,7 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.3...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.2.0...HEAD
+[1.2.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.3...1.2.0
 [1.1.3]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.2...1.1.3
 [1.1.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.1...1.1.2
 [1.1.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.0...1.1.1

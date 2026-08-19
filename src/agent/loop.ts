@@ -1,5 +1,6 @@
 import { MAX_TOOL_ROUNDS } from '../constants';
-import { EMPTY_MODEL_REPLY, LlmClient, errorMessage, isLikelyToolsUnsupported } from '../llm/client';
+import { debugLog, type DebugPayload } from '../debug';
+import { EMPTY_MODEL_REPLY, LlmClient, LlmError, errorMessage, isLikelyToolsUnsupported } from '../llm/client';
 import type { ChatMessage, ChatToolCall } from '../llm/types';
 import type VaultAssistantPlugin from '../main';
 import { retrieveContext } from '../rag/retriever';
@@ -13,12 +14,23 @@ export interface AgentRunOptions {
 	userMessage: string;
 	referencedPaths?: string[];
 	cancelled: () => boolean;
+	onStatus?: (text: string) => void;
 }
 
 export interface AgentRunResult {
 	assistantText: string;
 	proposals: NoteProposal[];
 	messages: ChatMessage[];
+	debug: DebugPayload;
+}
+
+interface AgentTrace {
+	startedAt: number;
+	ragHits: number;
+	rounds: number;
+	tools: string[];
+	fallback: boolean;
+	finishReason?: string;
 }
 
 /**
@@ -58,14 +70,27 @@ export async function runAgent(
 
 	const tools = getToolDefinitions(plugin.settings.ragEnabled);
 	const proposals: NoteProposal[] = [];
+	const trace: AgentTrace = {
+		startedAt: Date.now(),
+		ragHits: ragHits.length,
+		rounds: 0,
+		tools: [],
+		fallback: false,
+	};
 
 	try {
-		return await runWithTools(plugin, client, messages, tools, proposals, options.cancelled);
+		return await runWithTools(plugin, client, messages, tools, proposals, options, trace);
 	} catch (error) {
 		if (!isLikelyToolsUnsupported(error)) {
 			throw error;
 		}
-		return runWithoutTools(client, messages, plugin, options.cancelled);
+		trace.fallback = true;
+		debugLog(plugin.settings, 'agent.toolsUnsupported', {
+			error: errorMessage(error),
+			status: error instanceof LlmError ? error.status : undefined,
+		});
+		setStatus(plugin, options, 'Provider rejected tools; answering without tools.');
+		return runWithoutTools(client, messages, plugin, options, trace);
 	}
 }
 
@@ -75,28 +100,33 @@ async function runWithTools(
 	messages: ChatMessage[],
 	tools: ReturnType<typeof getToolDefinitions>,
 	proposals: NoteProposal[],
-	cancelled: () => boolean,
+	options: AgentRunOptions,
+	trace: AgentTrace,
 ): Promise<AgentRunResult> {
 	for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-		if (cancelled()) {
-			return { assistantText: 'Stopped.', proposals, messages };
+		if (options.cancelled()) {
+			return stopped(messages, proposals, trace);
 		}
-		const message = await client.chat({
+		trace.rounds = round + 1;
+		setStatus(plugin, options, `Requesting model (round ${round + 1}, tools)…`);
+		const result = await client.chat({
 			model: plugin.settings.model.trim(),
 			messages,
 			tools,
 			temperature: plugin.settings.temperature,
 			max_tokens: plugin.settings.maxTokens,
 		});
-		if (cancelled()) {
-			return { assistantText: 'Stopped.', proposals, messages };
+		trace.finishReason = result.finishReason;
+		if (options.cancelled()) {
+			return stopped(messages, proposals, trace);
 		}
 
+		const message = result.message;
 		const toolCalls = message.tool_calls?.filter((call) => call.function?.name);
 		if (!toolCalls || toolCalls.length === 0) {
 			const text = message.content?.trim() || EMPTY_MODEL_REPLY;
 			messages.push({ role: 'assistant', content: text });
-			return { assistantText: text, proposals, messages };
+			return finished(text, proposals, messages, trace);
 		}
 
 		messages.push({
@@ -106,10 +136,14 @@ async function runWithTools(
 		});
 
 		for (const call of toolCalls) {
-			if (cancelled()) {
-				return { assistantText: 'Stopped.', proposals, messages };
+			if (options.cancelled()) {
+				return stopped(messages, proposals, trace);
 			}
-			const outcome = await executeTool(plugin, call.function.name, parseArgs(call));
+			const name = call.function.name;
+			trace.tools.push(name);
+			setStatus(plugin, options, `Running ${name}…`);
+			debugLog(plugin.settings, 'agent.tool', { name, round: round + 1 });
+			const outcome = await executeTool(plugin, name, parseArgs(call, plugin));
 			if (outcome.type === 'proposal') {
 				proposals.push(outcome.proposal);
 			}
@@ -121,38 +155,44 @@ async function runWithTools(
 		}
 	}
 
+	setStatus(plugin, options, 'Requesting model (tool limit, no tools)…');
 	const final = await client.chat({
 		model: plugin.settings.model.trim(),
 		messages,
 		temperature: plugin.settings.temperature,
 		max_tokens: plugin.settings.maxTokens,
 	});
-	const text = final.content?.trim() || 'Reached the tool-call limit.';
+	trace.finishReason = final.finishReason;
+	const text = final.message.content?.trim() || 'Reached the tool-call limit.';
 	messages.push({ role: 'assistant', content: text });
-	return { assistantText: text, proposals, messages };
+	return finished(text, proposals, messages, trace);
 }
 
 async function runWithoutTools(
 	client: LlmClient,
 	messages: ChatMessage[],
 	plugin: VaultAssistantPlugin,
-	cancelled: () => boolean,
+	options: AgentRunOptions,
+	trace: AgentTrace,
 ): Promise<AgentRunResult> {
-	if (cancelled()) {
-		return { assistantText: 'Stopped.', proposals: [], messages };
+	if (options.cancelled()) {
+		return stopped(messages, [], trace);
 	}
-	const message = await client.chat({
+	setStatus(plugin, options, 'Requesting model (no tools)…');
+	const result = await client.chat({
 		model: plugin.settings.model.trim(),
 		messages,
 		temperature: plugin.settings.temperature,
 		max_tokens: plugin.settings.maxTokens,
 	});
-	const text = message.content?.trim() || EMPTY_MODEL_REPLY;
+	trace.finishReason = result.finishReason;
+	trace.rounds = Math.max(trace.rounds, 1);
+	const text = result.message.content?.trim() || EMPTY_MODEL_REPLY;
 	messages.push({ role: 'assistant', content: text });
-	return { assistantText: text, proposals: [], messages };
+	return finished(text, [], messages, trace);
 }
 
-function parseArgs(call: ChatToolCall): unknown {
+function parseArgs(call: ChatToolCall, plugin: VaultAssistantPlugin): unknown {
 	const raw = call.function.arguments?.trim();
 	if (!raw) {
 		return {};
@@ -160,8 +200,44 @@ function parseArgs(call: ChatToolCall): unknown {
 	try {
 		return JSON.parse(raw) as unknown;
 	} catch {
+		debugLog(plugin.settings, 'tool.args.invalid', {
+			name: call.function.name,
+			argumentLength: raw.length,
+		});
 		return {};
 	}
+}
+
+function setStatus(plugin: VaultAssistantPlugin, options: AgentRunOptions, text: string): void {
+	if (!plugin.settings.debugMode) {
+		return;
+	}
+	options.onStatus?.(text);
+}
+
+function stopped(messages: ChatMessage[], proposals: NoteProposal[], trace: AgentTrace): AgentRunResult {
+	return finished('Stopped.', proposals, messages, trace);
+}
+
+function finished(
+	assistantText: string,
+	proposals: NoteProposal[],
+	messages: ChatMessage[],
+	trace: AgentTrace,
+): AgentRunResult {
+	return {
+		assistantText,
+		proposals,
+		messages,
+		debug: {
+			durationMs: Date.now() - trace.startedAt,
+			rounds: trace.rounds,
+			tools: trace.tools.join(', ') || 'none',
+			ragHits: trace.ragHits,
+			fallback: trace.fallback,
+			finishReason: trace.finishReason,
+		},
+	};
 }
 
 export { errorMessage };

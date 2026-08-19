@@ -12,7 +12,10 @@ export class LlmError extends Error {
 export const EMPTY_MODEL_REPLY = 'The model returned an empty reply. Try raising max tokens.';
 
 export function sanitizeErrorText(message: string): string {
-	return message.replace(/sk-[a-zA-Z0-9-_]+/g, '[redacted]');
+	return message
+		.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+		.replace(/sk-[a-zA-Z0-9-_]+/g, '[redacted]')
+		.replace(/\b[a-zA-Z0-9_-]{40,}\b/g, '[redacted]');
 }
 
 export function errorMessage(error: unknown): string {

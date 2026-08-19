@@ -7,6 +7,7 @@ import {
 	MAX_RETRIEVED_CHARS,
 	MAX_SEARCH_HITS,
 } from '../constants';
+import { debugLog } from '../debug';
 import type VaultAssistantPlugin from '../main';
 import { truncate } from '../utils';
 import { isExcludedPath, parseExcludeFolders } from '../vault/paths';
@@ -231,7 +232,10 @@ export class VaultIndexer {
 			this.mtimes = new Map(Object.entries(parsed.mtimes ?? {}).map(([path, mtime]) => [path, Number(mtime)]));
 			this.chunkCount = this.mini.documentCount;
 			return this.chunkCount > 0;
-		} catch {
+		} catch (error) {
+			debugLog(this.plugin.settings, 'index.load.failed', {
+				error: error instanceof Error ? error.message : String(error),
+			});
 			return false;
 		}
 	}
@@ -256,8 +260,11 @@ export class VaultIndexer {
 				mtimes: Object.fromEntries(this.mtimes),
 			};
 			await this.plugin.app.vault.adapter.write(path, JSON.stringify(payload));
-		} catch {
+		} catch (error) {
 			// Index persistence is best-effort; search still works in memory.
+			debugLog(this.plugin.settings, 'index.persist.failed', {
+				error: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 }
