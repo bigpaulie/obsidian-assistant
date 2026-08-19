@@ -12,6 +12,15 @@ export interface ChatMessage {
 	content: string | null;
 	tool_calls?: ChatToolCall[];
 	tool_call_id?: string;
+	/** Responses API items to echo on the next turn (reasoning + function_call). */
+	providerItems?: Record<string, unknown>[];
+}
+
+/** Provider-agnostic function tool. Convert with tools-format before sending. */
+export interface ToolSpec {
+	name: string;
+	description: string;
+	parameters: Record<string, unknown>;
 }
 
 export interface ChatTool {
@@ -23,6 +32,21 @@ export interface ChatTool {
 	};
 }
 
+export interface ResponsesTool {
+	type: 'function';
+	name: string;
+	description: string;
+	parameters: Record<string, unknown>;
+}
+
+export interface ChatRequest {
+	model: string;
+	messages: ChatMessage[];
+	tools?: ToolSpec[];
+	temperature?: number;
+	max_tokens?: number;
+}
+
 export interface ChatCompletionRequest {
 	model: string;
 	messages: ChatMessage[];
@@ -30,6 +54,7 @@ export interface ChatCompletionRequest {
 	temperature?: number;
 	max_tokens?: number;
 	max_completion_tokens?: number;
+	reasoning_effort?: 'none';
 }
 
 export interface ChatCompletionChoice {

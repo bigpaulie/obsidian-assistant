@@ -31,7 +31,7 @@ Requires Obsidian 1.13.0+.
 6. Optionally **Detect models** and **Test connection**.
 7. Open chat from the ribbon or the command **Open chat**.
 
-Ollama must expose `/v1/chat/completions`. Models that cannot use tools still answer from locally retrieved note chunks.
+Ollama must expose `/v1/chat/completions`. OpenAI gpt-5.4+ models (including gpt-5.6-sol) use `/v1/responses` for tools; OpenRouter and Ollama stay on Chat Completions. Tools are defined once and converted per API. Models that cannot use tools still answer from locally retrieved note chunks.
 
 ## Using chat
 
@@ -55,7 +55,7 @@ Ollama must expose `/v1/chat/completions`. Models that cannot use tools still an
 
 ## Privacy
 
-- **On this device:** API keys in the plugin `data.json`, and the search index in `search-index.json`. Keys are never logged. Optional **Debug mode** writes request metadata (provider, model, timing, status) to the local developer console and chat; it does not log API keys or note contents.
+- **On this device:** API keys in the plugin `data.json`, and the search index in `search-index.json`. Keys are never logged. Optional **Debug mode** (**Settings → Vault Assistant → Advanced**) shows a Debug card in chat after each reply (endpoint, timing, tools). It can also write the same metadata to the developer console; set the log level to **Verbose**. It does not log API keys or note contents.
 - **Indexing** lists markdown note paths in the vault (`getMarkdownFiles`) so search can run locally. It does not send notes anywhere. Use **Exclude folders** to skip paths.
 - **Chat** sends your prompt, retrieved chunks, conversation history, notes you explicitly reference, and any note the assistant reads. The whole vault is not uploaded.
 - There is no telemetry. Network calls happen only when you chat, detect models, or test the connection, and only to the provider you chose (OpenAI, OpenRouter, or your Ollama URL).

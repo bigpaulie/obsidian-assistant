@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-19
+
+### Added
+
+- OpenAI gpt-5.4+ models (including gpt-5.6-sol) call function tools through `/v1/responses`. Tools are defined once and converted per API; OpenRouter and Ollama keep Chat Completions tools.
+
+### Fixed
+
+- Debug mode saves when toggled and shows a Debug card in chat. Console lines still need DevTools log level Verbose.
+
 ## [1.2.0] - 2026-08-19
 
 ### Added
@@ -66,7 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.2.0...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.3...1.2.0
 [1.1.3]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.2...1.1.3
 [1.1.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.1.1...1.1.2

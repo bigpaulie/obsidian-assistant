@@ -218,10 +218,16 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 				items: [
 					{
 						name: 'Debug mode',
-						desc: 'Show extra request detail in chat and the developer console (Ctrl+Shift+I). Off by default. Never logs API keys or note contents.',
-						control: {
-							type: 'toggle',
-							key: 'debugMode',
+						desc: 'Show a Debug card in chat after each reply (endpoint, timing, tools). Console lines need DevTools log level Verbose (Ctrl+Shift+I). Off by default. Never logs API keys or note contents.',
+						render: (setting) => {
+							setting.addToggle((toggle) => {
+								toggle.setValue(this.plugin.settings.debugMode);
+								toggle.onChange(async (value) => {
+									this.plugin.settings.debugMode = value;
+									await this.plugin.saveSettings();
+									new Notice(value ? 'Debug mode on' : 'Debug mode off');
+								});
+							});
 						},
 					},
 				],
