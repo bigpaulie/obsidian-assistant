@@ -358,19 +358,18 @@ export class ChatView extends ItemView {
 		this.running = true;
 		this.cancelled = false;
 		this.setBusy(true);
-		const debug = this.plugin.settings.debugMode;
 		let statusText = 'Thinking…';
 		const startedAt = Date.now();
 		const status = this.messagesEl.createDiv({ cls: 'vault-assistant-status', text: statusText });
 		const renderStatus = (): void => {
-			if (!debug) {
+			if (!this.plugin.settings.debugMode) {
 				status.setText(statusText);
 				return;
 			}
 			const elapsed = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
 			status.setText(`${statusText} (${elapsed}s)`);
 		};
-		const timer = debug ? window.setInterval(renderStatus, 1000) : null;
+		const timer = window.setInterval(renderStatus, 1000);
 		renderStatus();
 		this.scrollToBottom();
 
@@ -393,7 +392,7 @@ export class ChatView extends ItemView {
 			}
 			this.history = toUiHistory(result.messages);
 			await this.appendAssistantMessage(result.assistantText, result.proposals);
-			if (debug) {
+			if (this.plugin.settings.debugMode) {
 				this.appendStatusCard('Debug', formatDebugLines(result.debug), {
 					copied: 'Copied debug details.',
 				});
@@ -409,9 +408,7 @@ export class ChatView extends ItemView {
 				});
 			}
 		} finally {
-			if (timer !== null) {
-				window.clearInterval(timer);
-			}
+			window.clearInterval(timer);
 			this.running = false;
 			this.setBusy(false);
 			this.scrollToBottom();
@@ -429,12 +426,12 @@ export class ChatView extends ItemView {
 			summary = error instanceof Error ? error.message : String(error);
 		}
 		const status = error instanceof LlmError ? error.status : undefined;
-		const debug = error instanceof LlmError ? error.debug : undefined;
+		const extra = error instanceof LlmError ? error.debug : undefined;
 		const lines = [
 			summary,
 			status ? `HTTP ${status}` : '',
 			detail && detail !== summary ? detail : '',
-			debug ? formatDebugLines(debug) : '',
+			this.plugin.settings.debugMode && extra ? formatDebugLines(extra) : '',
 		].filter((line) => line.length > 0);
 		this.appendStatusCard('Error', lines.join('\n\n'), {
 			notice: summary,

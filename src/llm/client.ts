@@ -4,12 +4,15 @@ import { debugLog, type DebugPayload } from '../debug';
 import type { VaultAssistantSettings } from '../settings';
 import { isRecord } from '../utils';
 import { EMPTY_MODEL_REPLY, LlmError, errorMessage, sanitizeErrorText } from './errors';
-import { completionSampling } from './model-params';
+import { chatCompletionsReasoningEffort, completionSampling, usesResponsesApi } from './model-params';
 import { getApiKeyForProvider, normalizeServerUrl, resolveProviderConfig } from './providers';
+import { messagesToResponsesInput, responsesOutputToMessage, type ResponsesRequest } from './responses';
+import { toChatCompletionsTools, toResponsesTools } from './tools-format';
 import type {
 	ChatCompletionRequest,
 	ChatCompletionResponse,
 	ChatMessage,
+	ChatRequest,
 	ModelListResponse,
 } from './types';
 
@@ -23,13 +26,24 @@ export interface ChatResult {
 
 /**
  * Thin OpenAI-compatible client using Obsidian `requestUrl` (CORS-safe).
+ * Converts canonical tools to Chat Completions or Responses wire format.
  * Never logs request headers or API keys.
  */
 export class LlmClient {
 	constructor(private readonly settings: VaultAssistantSettings) {}
 
-	async chat(request: ChatCompletionRequest): Promise<ChatResult> {
+	async chat(request: ChatRequest): Promise<ChatResult> {
 		this.assertReady();
+		const config = resolveProviderConfig(this.settings);
+		const tools = request.tools ?? [];
+		const hasTools = tools.length > 0;
+		if (usesResponsesApi(config.id, request.model, { hasTools, messages: request.messages })) {
+			return this.chatResponses(request, hasTools ? tools : undefined);
+		}
+		return this.chatCompletions(request);
+	}
+
+	private async chatCompletions(request: ChatRequest): Promise<ChatResult> {
 		const config = resolveProviderConfig(this.settings);
 		const sampling = completionSampling(
 			request.model,
@@ -38,11 +52,15 @@ export class LlmClient {
 		);
 		const body: ChatCompletionRequest = {
 			model: request.model,
-			messages: request.messages,
+			messages: stripProviderItems(request.messages),
 			...sampling,
 		};
 		if (request.tools && request.tools.length > 0) {
-			body.tools = request.tools;
+			body.tools = toChatCompletionsTools(request.tools);
+			const effort = chatCompletionsReasoningEffort(config.id, request.model, true);
+			if (effort) {
+				body.reasoning_effort = effort;
+			}
 		}
 
 		const endpoint = `${config.apiBaseUrl}/chat/completions`;
@@ -75,6 +93,56 @@ export class LlmClient {
 			}
 			debugLog(this.settings, 'chat.ok', meta);
 			return { message, finishReason: choice?.finish_reason, durationMs };
+		} catch (error) {
+			throw this.wrapError(error, debug, startedAt);
+		}
+	}
+
+	private async chatResponses(request: ChatRequest, tools?: ChatRequest['tools']): Promise<ChatResult> {
+		const config = resolveProviderConfig(this.settings);
+		const { instructions, input } = messagesToResponsesInput(request.messages);
+		const body: ResponsesRequest = {
+			model: request.model,
+			input,
+			store: false,
+			max_output_tokens: request.max_tokens ?? 2048,
+		};
+		if (instructions) {
+			body.instructions = instructions;
+		}
+		if (tools && tools.length > 0) {
+			body.tools = toResponsesTools(tools);
+		}
+
+		const endpoint = `${config.apiBaseUrl}/responses`;
+		const debug = {
+			provider: config.id,
+			model: request.model,
+			endpoint,
+			sampling: 'max_output_tokens',
+			tools: Boolean(body.tools),
+		};
+		const startedAt = Date.now();
+		debugLog(this.settings, 'chat.start', debug);
+
+		try {
+			const { json, status } = await this.postJson(endpoint, body);
+			const durationMs = Date.now() - startedAt;
+			const parsed = json as { output?: unknown[]; status?: string; error?: { message?: string } };
+			const { message, finishReason } = responsesOutputToMessage(parsed.output, parsed.status);
+			const meta = {
+				...debug,
+				httpStatus: status,
+				durationMs,
+				finishReason,
+				contentLength: message.content?.length ?? 0,
+				toolCallCount: message.tool_calls?.length ?? 0,
+			};
+			if (!message.content && !message.tool_calls?.length) {
+				throw new LlmError(apiErrorMessage(parsed) || EMPTY_MODEL_REPLY, undefined, meta);
+			}
+			debugLog(this.settings, 'chat.ok', meta);
+			return { message, finishReason, durationMs };
 		} catch (error) {
 			throw this.wrapError(error, debug, startedAt);
 		}
@@ -165,6 +233,14 @@ export class LlmClient {
 		});
 		return { json: parseResponse(response.status, response.text), status: response.status };
 	}
+}
+
+function stripProviderItems(messages: ChatMessage[]): ChatMessage[] {
+	return messages.map((message) => {
+		const copy = { ...message };
+		delete copy.providerItems;
+		return copy;
+	});
 }
 
 function parseResponse(status: number, text: string): unknown {

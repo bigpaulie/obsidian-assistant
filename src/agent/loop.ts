@@ -34,7 +34,7 @@ interface AgentTrace {
 }
 
 /**
- * Chat completions loop with optional tools.
+ * Chat loop with API tools (converted per provider).
  * Falls back to a single RAG-stuffed completion when the model rejects tools.
  */
 export async function runAgent(
@@ -133,6 +133,7 @@ async function runWithTools(
 			role: 'assistant',
 			content: message.content ?? '',
 			tool_calls: toolCalls,
+			providerItems: message.providerItems,
 		});
 
 		for (const call of toolCalls) {
