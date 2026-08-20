@@ -208,11 +208,15 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 	overflow: hidden;
 }
 
+.vault-assistant-root.is-mobile .vault-assistant-messages {
+	overscroll-behavior: contain;
+}
+
 .vault-assistant-root.is-mobile .vault-assistant-header {
 	padding: var(--size-4-4);
 }
 
-.vault-assistant-root.is-mobile.is-keyboard-open .vault-assistant-header {
+.vault-assistant-root.is-phone.is-keyboard-open .vault-assistant-header {
 	display: none;
 }
 
@@ -239,7 +243,21 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 
 .vault-assistant-root.is-mobile .vault-assistant-composer textarea {
 	min-height: 3em;
+	max-height: 30vh;
+	height: auto;
+	field-sizing: content;
 	resize: none;
+	font-size: 16px;
+	overflow-y: auto;
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-composer-actions {
+	flex-wrap: nowrap;
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-composer-send {
+	flex-shrink: 0;
+	flex-wrap: nowrap;
 }
 
 .vault-assistant-root.is-mobile.is-keyboard-open .vault-assistant-composer-add {
@@ -248,6 +266,7 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 
 .vault-assistant-root.is-mobile .vault-assistant-composer-add {
 	flex: 1;
+	min-width: 0;
 }
 
 .vault-assistant-root.is-mobile .vault-assistant-composer-add button {

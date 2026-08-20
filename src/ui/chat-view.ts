@@ -8,9 +8,8 @@ import type { ChatMessage } from '../llm/types';
 import type VaultAssistantPlugin from '../main';
 import { getOpenMarkdownFiles } from '../vault/notes';
 import { renderApplyCard } from './apply-card';
+import { composerKeyboardInset, MOBILE_KEYBOARD_INSET_THRESHOLD } from './keyboard-inset';
 import { NoteSuggestModal, wikilinkFor } from './note-suggest';
-
-const MOBILE_KEYBOARD_INSET_THRESHOLD = 50;
 
 export class ChatView extends ItemView {
 	private messagesEl!: HTMLElement;
@@ -27,6 +26,7 @@ export class ChatView extends ItemView {
 	private cancelled = false;
 	private running = false;
 	private suggestOpen = false;
+	private restInnerHeight = 0;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -56,6 +56,9 @@ export class ChatView extends ItemView {
 		if (Platform.isMobile) {
 			root.addClass('is-mobile');
 		}
+		if (Platform.isPhone) {
+			root.addClass('is-phone');
+		}
 
 		const header = root.createDiv({ cls: 'vault-assistant-header' });
 		header.createEl('h2', { text: 'Vault assistant' });
@@ -74,6 +77,7 @@ export class ChatView extends ItemView {
 				placeholder: Platform.isMobile
 					? 'Ask about your notes.'
 					: 'Ask about your notes. Type [[ to add a note.',
+				...(Platform.isMobile ? { enterkeyhint: 'enter' } : {}),
 			},
 		});
 		const buttons = composer.createDiv({ cls: 'vault-assistant-composer-actions' });
@@ -208,6 +212,7 @@ export class ChatView extends ItemView {
 		if (!Platform.isMobile) {
 			return;
 		}
+		this.restInnerHeight = window.innerHeight;
 		const sync = (): void => this.syncMobileKeyboard();
 		const vv = window.visualViewport;
 		if (vv) {
@@ -224,6 +229,14 @@ export class ChatView extends ItemView {
 			attributeFilter: ['style'],
 		});
 		this.register(() => keyboardObserver.disconnect());
+		this.registerDomEvent(window, 'orientationchange', () => {
+			window.setTimeout(() => {
+				if (this.inputEl !== document.activeElement) {
+					this.restInnerHeight = window.innerHeight;
+				}
+				sync();
+			}, 300);
+		});
 		this.registerDomEvent(this.inputEl, 'focus', () => {
 			this.doneBtn?.show();
 			sync();
@@ -252,26 +265,27 @@ export class ChatView extends ItemView {
 		this.contentEl.toggleClass('is-keyboard-open', open);
 		if (open) {
 			this.containerEl.style.setProperty('--vault-assistant-keyboard-inset', `${inset}px`);
+			this.scrollToBottom();
 		} else {
 			this.containerEl.style.removeProperty('--vault-assistant-keyboard-inset');
-		}
-		if (this.inputEl === document.activeElement) {
-			window.requestAnimationFrame(() => {
-				this.inputEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			});
+			if (this.inputEl !== document.activeElement) {
+				this.restInnerHeight = window.innerHeight;
+			}
 		}
 	}
 
 	private mobileKeyboardInset(): number {
 		const vv = window.visualViewport;
-		if (!vv) {
-			return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height')) || 0;
-		}
-		const rect = this.containerEl.getBoundingClientRect();
-		const currentPad = parseFloat(getComputedStyle(this.containerEl).paddingBottom) || 0;
-		const contentBottom = rect.bottom - currentPad;
-		const visibleBottom = vv.offsetTop + vv.height;
-		return Math.max(0, contentBottom - visibleBottom + currentPad);
+		const obsidianKeyboardHeight =
+			parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height')) || 0;
+		return composerKeyboardInset({
+			innerHeight: window.innerHeight,
+			restInnerHeight: this.restInnerHeight || window.innerHeight,
+			visualViewportHeight: vv?.height,
+			visualViewportOffsetTop: vv?.offsetTop,
+			obsidianKeyboardHeight,
+			containerBottom: this.containerEl.getBoundingClientRect().bottom,
+		});
 	}
 
 	private maybeOpenWikiSuggest(): void {
