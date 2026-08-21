@@ -11,7 +11,7 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			obsidian: path.resolve(root, 'tests/stubs/obsidian.ts'),
+			obsidian: path.resolve(root, 'tests/stubs/obsidian-runtime.ts'),
 		},
 	},
 });
