@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-08-21
+
+### Fixed
+
+- Plugin TypeScript project is `src/` only again, so the community review typecheck is not poisoned by the Vitest `obsidian` runtime stub.
+
 ## [1.3.2] - 2026-08-21
 
 ### Added
@@ -88,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.2...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.3...HEAD
+[1.3.3]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.2...1.3.3
 [1.3.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.1...1.3.2
 [1.3.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.0...1.3.1
 [1.3.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.2.0...1.3.0
