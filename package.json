@@ -1,6 +1,6 @@
 {
 	"name": "vault-assistant",
-	"version": "1.3.1",
+	"version": "1.3.2",
 	"description": "OpenAI-compatible chat agent for Obsidian with local RAG and apply-gated note writes.",
 	"main": "main.js",
 	"type": "module",
@@ -8,7 +8,9 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"lint": "eslint ."
+		"lint": "eslint .",
+		"test": "vitest run",
+		"test:watch": "vitest"
 	},
 	"keywords": [
 		"obsidian",
@@ -30,6 +32,7 @@
 		"jiti": "^2.6.1",
 		"obsidian": "1.13.1",
 		"typescript": "^5.8.3",
-		"typescript-eslint": "^8.59.1"
+		"typescript-eslint": "^8.59.1",
+		"vitest": "^4.1.11"
 	}
 }

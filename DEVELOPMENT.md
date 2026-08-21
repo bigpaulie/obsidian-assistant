@@ -34,6 +34,7 @@ If the vault is in iCloud, copy or symlink with `manifest.json` already in place
 ```bash
 npm run dev    # watch build to main.js
 npm run build  # typecheck and production bundle
+npm test       # unit tests (Vitest)
 npm run lint   # ESLint, including eslint-plugin-obsidianmd
 ```
 
