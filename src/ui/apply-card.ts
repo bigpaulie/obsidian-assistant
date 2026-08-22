@@ -1,7 +1,8 @@
 import { Component, MarkdownRenderer, Notice } from 'obsidian';
 import type { NoteProposal } from '../agent/tools';
 import type VaultAssistantPlugin from '../main';
-import { createNote, updateNote } from '../vault/notes';
+import { createNote, moveNote, updateNote } from '../vault/notes';
+import { dirname } from '../vault/paths';
 
 export function renderApplyCard(
 	plugin: VaultAssistantPlugin,
@@ -14,12 +15,14 @@ export function renderApplyCard(
 	const header = card.createDiv({ cls: 'vault-assistant-proposal-header' });
 	header.createSpan({
 		cls: 'vault-assistant-proposal-action',
-		text: proposal.action === 'create' ? 'Create note' : 'Update note',
+		text: actionLabel(proposal),
 	});
-	header.createSpan({ cls: 'vault-assistant-proposal-path', text: proposal.path });
+	header.createSpan({ cls: 'vault-assistant-proposal-path', text: pathLabel(proposal) });
 
-	const preview = card.createDiv({ cls: 'vault-assistant-proposal-preview markdown-rendered' });
-	void MarkdownRenderer.render(plugin.app, proposal.content, preview, sourcePath, markdownHost);
+	if (proposal.action !== 'move') {
+		const preview = card.createDiv({ cls: 'vault-assistant-proposal-preview markdown-rendered' });
+		void MarkdownRenderer.render(plugin.app, proposal.content, preview, sourcePath, markdownHost);
+	}
 
 	const actions = card.createDiv({ cls: 'vault-assistant-proposal-actions' });
 	const applyBtn = actions.createEl('button', { cls: 'mod-cta', text: 'Apply' });
@@ -33,16 +36,10 @@ export function renderApplyCard(
 		void (async () => {
 			applyBtn.setAttr('disabled', 'true');
 			try {
-				if (proposal.action === 'create') {
-					const file = await createNote(plugin.app, proposal.path, proposal.content);
-					appliedPath = file.path;
-					header.querySelector('.vault-assistant-proposal-path')?.setText(file.path);
-					new Notice(`Created ${file.path}`);
-				} else {
-					const file = await updateNote(plugin.app, proposal.path, proposal.content);
-					appliedPath = file.path;
-					new Notice(`Updated ${file.path}`);
-				}
+				const file = await applyProposal(plugin, proposal);
+				appliedPath = file.path;
+				header.querySelector('.vault-assistant-proposal-path')?.setText(file.path);
+				new Notice(appliedNotice(proposal.action, file.path));
 				applyBtn.setText('Applied');
 				dismissBtn.hide();
 				openBtn.show();
@@ -69,4 +66,43 @@ export function renderApplyCard(
 			void plugin.app.workspace.getLeaf(false).openFile(file);
 		}
 	});
+}
+
+function actionLabel(proposal: NoteProposal): string {
+	switch (proposal.action) {
+		case 'create':
+			return 'Create note';
+		case 'update':
+			return 'Update note';
+		case 'move':
+			return 'Move note';
+	}
+}
+
+function pathLabel(proposal: NoteProposal): string {
+	if (proposal.action === 'move') {
+		return `${proposal.path} → ${proposal.destination}`;
+	}
+	return proposal.path;
+}
+
+function appliedNotice(action: NoteProposal['action'], path: string): string {
+	switch (action) {
+		case 'create':
+			return `Created ${path}`;
+		case 'update':
+			return `Updated ${path}`;
+		case 'move':
+			return `Moved ${path}`;
+	}
+}
+
+async function applyProposal(plugin: VaultAssistantPlugin, proposal: NoteProposal) {
+	if (proposal.action === 'move') {
+		return moveNote(plugin.app, proposal.path, dirname(proposal.destination));
+	}
+	if (proposal.action === 'create') {
+		return createNote(plugin.app, proposal.path, proposal.content);
+	}
+	return updateNote(plugin.app, proposal.path, proposal.content);
 }

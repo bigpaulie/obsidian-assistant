@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-22
+
+### Added
+
+- Propose moving a note to another folder in chat; nothing is written until you apply it.
+
 ## [1.4.1] - 2026-08-22
 
 ### Fixed
@@ -109,7 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.4.1...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.0...HEAD
+[1.5.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.4.1...1.5.0
 [1.4.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.4.0...1.4.1
 [1.4.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.3...1.4.0
 [1.3.3]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.2...1.3.3
