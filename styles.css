@@ -164,19 +164,42 @@
 	border-top: 1px solid var(--background-modifier-border);
 }
 
-.vault-assistant-composer textarea {
-	width: 100%;
-	resize: vertical;
-	min-height: 4.5em;
+.vault-assistant-composer-field {
+	display: flex;
+	align-items: flex-end;
+	gap: var(--size-4-2);
 	background-color: var(--background-modifier-form-field);
-	color: var(--text-normal);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
-	padding: var(--size-4-2);
+	padding: var(--size-2-2) var(--size-2-2) var(--size-2-2) var(--size-4-2);
 }
 
-.vault-assistant-composer textarea.is-disabled {
+.vault-assistant-composer-field:focus-within {
+	border-color: var(--interactive-accent);
+}
+
+.vault-assistant-composer-field textarea {
+	flex: 1;
+	min-width: 0;
+	resize: none;
+	min-height: 2.5em;
+	max-height: 40vh;
+	overflow-y: auto;
+	background-color: transparent;
+	color: var(--text-normal);
+	border: none;
+	box-shadow: none;
+	outline: none;
+	padding: var(--size-2-2) 0;
+}
+
+.vault-assistant-composer-field textarea.is-disabled {
 	opacity: 0.7;
+}
+
+.vault-assistant-composer-field button {
+	flex-shrink: 0;
+	margin: 0;
 }
 
 .vault-assistant-composer-actions {
@@ -187,8 +210,7 @@
 	gap: var(--size-4-2);
 }
 
-.vault-assistant-composer-add,
-.vault-assistant-composer-send {
+.vault-assistant-composer-add {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--size-4-2);
@@ -261,22 +283,13 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 	padding-bottom: var(--size-4-3);
 }
 
-.vault-assistant-root.is-mobile .vault-assistant-composer textarea {
-	min-height: 3em;
+.vault-assistant-root.is-mobile .vault-assistant-composer-field textarea {
+	min-height: 2.5em;
 	max-height: 30vh;
-	height: auto;
-	field-sizing: content;
-	resize: none;
 	font-size: 16px;
-	overflow-y: auto;
 }
 
 .vault-assistant-root.is-mobile .vault-assistant-composer-actions {
-	flex-wrap: nowrap;
-}
-
-.vault-assistant-root.is-mobile .vault-assistant-composer-send {
-	flex-shrink: 0;
 	flex-wrap: nowrap;
 }
 
@@ -295,7 +308,7 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 
 .vault-assistant-root.is-mobile .vault-assistant-header button,
 .vault-assistant-root.is-mobile .vault-assistant-composer-add button,
-.vault-assistant-root.is-mobile .vault-assistant-composer-send button,
+.vault-assistant-root.is-mobile .vault-assistant-composer-field button,
 .vault-assistant-root.is-mobile .vault-assistant-proposal-actions button,
 .vault-assistant-root.is-mobile .vault-assistant-chip-remove,
 .vault-assistant-root.is-mobile .vault-assistant-status button {
@@ -303,6 +316,88 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 	min-width: 44px;
 }
 
-.vault-assistant-settings-group textarea {
+.vault-assistant-settings-group .setting-item {
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-4-2);
+}
+
+.vault-assistant-settings-group .setting-item-info,
+.vault-assistant-settings-group .setting-item-control {
 	width: 100%;
+}
+
+.vault-assistant-settings-group .setting-item-control {
+	justify-content: flex-start;
+}
+
+.vault-assistant-settings-group textarea,
+.vault-assistant-settings-group input[type='text'],
+.vault-assistant-settings-group input[type='number'],
+.vault-assistant-settings-group input[type='password'],
+.vault-assistant-settings-group input[type='range'],
+.vault-assistant-settings-group .slider {
+	width: 100%;
+	max-width: 100%;
+}
+
+.vault-assistant-settings-group .setting-item-control select.dropdown {
+	appearance: none;
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 100%;
+	height: var(--input-height);
+	padding-inline: var(--size-4-2);
+	padding-inline-end: var(--size-4-8);
+	color: var(--text-normal);
+	background-color: var(--background-modifier-form-field);
+	background-image:
+		linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+		linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+	background-position:
+		calc(100% - 18px) calc(50% - 1px),
+		calc(100% - 13px) calc(50% - 1px);
+	background-size: 5px 5px, 5px 5px;
+	background-repeat: no-repeat;
+	border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+	border-radius: var(--input-radius);
+	box-shadow: none;
+}
+
+.vault-assistant-settings-group .setting-item.mod-toggle,
+.vault-assistant-settings-group .vault-assistant-setting-action {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.vault-assistant-settings-group .setting-item.mod-toggle .setting-item-control,
+.vault-assistant-settings-group .vault-assistant-setting-action .setting-item-control {
+	width: auto;
+	justify-content: flex-end;
+}
+
+.vault-assistant-setting-model .setting-item-control {
+	flex-wrap: nowrap;
+	align-items: center;
+	justify-content: flex-start;
+	gap: var(--size-4-2);
+}
+
+.vault-assistant-setting-model .setting-item-control input,
+.vault-assistant-setting-model .setting-item-control select.dropdown {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.vault-assistant-setting-model .setting-item-control .clickable-icon {
+	flex-shrink: 0;
+	margin-inline-start: 0;
+}
+
+body.is-mobile .vault-assistant-setting-model .setting-item-control button,
+body.is-mobile .vault-assistant-setting-model .clickable-icon,
+body.is-mobile .vault-assistant-setting-action button {
+	min-height: 44px;
+	min-width: 44px;
 }

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-08-22
+
+### Changed
+
+- Settings: Provider group; labels above text, dropdown, and slider fields (toggles stay on the native row); dropdowns match text fields; after detect, the model list replaces the text field with Detect on the right; Test and Rebuild sit on the native action row.
+- Chat Send sits inside a self-expanding composer field. The mobile **Done** button is removed; tap the transcript to hide the keyboard.
+
 ## [1.5.0] - 2026-08-22
 
 ### Added
@@ -115,7 +122,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.0...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.1...HEAD
+[1.5.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.0...1.5.1
 [1.5.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.4.1...1.5.0
 [1.4.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.4.0...1.4.1
 [1.4.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.3.3...1.4.0
