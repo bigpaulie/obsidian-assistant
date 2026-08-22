@@ -1,3 +1,5 @@
+import { isRecord } from '../utils';
+
 export class LlmError extends Error {
 	constructor(
 		message: string,
@@ -78,4 +80,27 @@ export function isLikelyToolsUnsupported(error: unknown): boolean {
 		message.includes('function calling') ||
 		message.includes('functions')
 	);
+}
+
+export function apiErrorMessage(json: unknown): string | undefined {
+	if (!isRecord(json)) {
+		return undefined;
+	}
+	if (typeof json.error === 'string' && json.error.trim()) {
+		return sanitizeErrorText(json.error);
+	}
+	if (isRecord(json.error)) {
+		if (typeof json.error.message === 'string' && json.error.message.trim()) {
+			return sanitizeErrorText(json.error.message);
+		}
+		try {
+			return sanitizeErrorText(JSON.stringify(json.error));
+		} catch {
+			return undefined;
+		}
+	}
+	if (typeof json.message === 'string' && json.message.trim()) {
+		return sanitizeErrorText(json.message);
+	}
+	return undefined;
 }

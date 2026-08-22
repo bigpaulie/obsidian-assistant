@@ -13,6 +13,7 @@ describe('DEFAULT_SETTINGS', () => {
 		expect(DEFAULT_SETTINGS.maxChunks).toBe(8);
 		expect(DEFAULT_SETTINGS.privacyAcknowledged).toBe(false);
 		expect(DEFAULT_SETTINGS.debugMode).toBe(false);
+		expect(DEFAULT_SETTINGS.showReplyMeta).toBe(true);
 	});
 
 	it('fills missing keys when merging partial saved data', () => {

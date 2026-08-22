@@ -5,6 +5,7 @@ import { MAX_REFERENCED_NOTES, VIEW_TYPE_CHAT } from '../constants';
 import { formatDebugLines } from '../debug';
 import { formatChatError, LlmError } from '../llm/errors';
 import type { ChatMessage } from '../llm/types';
+import { formatReplyMeta, type TokenUsage } from '../llm/usage';
 import type VaultAssistantPlugin from '../main';
 import { getOpenMarkdownFiles } from '../vault/notes';
 import { renderApplyCard } from './apply-card';
@@ -405,7 +406,11 @@ export class ChatView extends ItemView {
 				return;
 			}
 			this.history = toUiHistory(result.messages);
-			await this.appendAssistantMessage(result.assistantText, result.proposals);
+			await this.appendAssistantMessage(result.assistantText, result.proposals, {
+				thinking: result.thinking,
+				model: result.model,
+				usage: result.usage,
+			});
 			if (this.plugin.settings.debugMode) {
 				this.appendStatusCard('Debug', formatDebugLines(result.debug), {
 					copied: 'Copied debug details.',
@@ -501,15 +506,43 @@ export class ChatView extends ItemView {
 		this.scrollToBottom();
 	}
 
-	private async appendAssistantMessage(text: string, proposals: NoteProposal[]): Promise<void> {
+	private async appendAssistantMessage(
+		text: string,
+		proposals: NoteProposal[],
+		meta?: { thinking?: string; model?: string; usage?: TokenUsage },
+	): Promise<void> {
 		const bubble = this.messagesEl.createDiv({ cls: 'vault-assistant-msg is-assistant' });
 		bubble.createDiv({ cls: 'vault-assistant-msg-label', text: 'Assistant' });
+		this.renderThinking(bubble, meta?.thinking);
 		const body = bubble.createDiv({ cls: 'vault-assistant-msg-body markdown-rendered' });
 		await MarkdownRenderer.render(this.app, text, body, this.markdownSourcePath(), this.messagesHost);
+		this.renderReplyMeta(bubble, meta?.model, meta?.usage);
 		for (const proposal of proposals) {
 			renderApplyCard(this.plugin, this.messagesEl, proposal, this.messagesHost, this.markdownSourcePath());
 		}
 		this.scrollToBottom();
+	}
+
+	private renderThinking(bubble: HTMLElement, thinking?: string): void {
+		const text = thinking?.trim() ?? '';
+		if (!text) {
+			return;
+		}
+		const details = bubble.createEl('details', { cls: 'vault-assistant-thinking' });
+		details.createEl('summary', { text: 'Thinking' });
+		details.createDiv({ cls: 'vault-assistant-thinking-body', text });
+		details.open = false;
+	}
+
+	private renderReplyMeta(bubble: HTMLElement, model?: string, usage?: TokenUsage): void {
+		if (!this.plugin.settings.showReplyMeta) {
+			return;
+		}
+		const line = formatReplyMeta(model ?? this.plugin.settings.model, usage);
+		if (!line) {
+			return;
+		}
+		bubble.createDiv({ cls: 'vault-assistant-msg-meta', text: line });
 	}
 
 	private markdownSourcePath(): string {

@@ -17,6 +17,7 @@ export interface VaultAssistantSettings {
 	excludeFolders: string;
 	privacyAcknowledged: boolean;
 	debugMode: boolean;
+	showReplyMeta: boolean;
 }
 
 export const DEFAULT_SETTINGS: VaultAssistantSettings = {
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: VaultAssistantSettings = {
 	excludeFolders: '',
 	privacyAcknowledged: false,
 	debugMode: false,
+	showReplyMeta: true,
 };
 
 export const PROVIDER_LABELS: Record<ProviderId, string> = {

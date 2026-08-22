@@ -1,4 +1,5 @@
 import { asString, isRecord } from '../utils';
+import { extractReasoningSummary, extractTextParts, joinThinking } from './thinking';
 import type { ChatMessage, ChatToolCall } from './types';
 
 export interface ResponsesRequest {
@@ -71,11 +72,12 @@ export function messagesToResponsesInput(messages: ChatMessage[]): {
 export function responsesOutputToMessage(
 	output: unknown[] | undefined,
 	status?: string,
-): { message: ChatMessage; finishReason?: string } {
+): { message: ChatMessage; finishReason?: string; thinking?: string } {
 	const items = output ?? [];
 	const providerItems: Record<string, unknown>[] = [];
 	const toolCalls: ChatToolCall[] = [];
 	const texts: string[] = [];
+	const thinkingParts: string[] = [];
 
 	for (const item of items) {
 		if (!isRecord(item)) {
@@ -83,6 +85,12 @@ export function responsesOutputToMessage(
 		}
 		if (item.type === 'reasoning' || item.type === 'function_call') {
 			providerItems.push(item);
+		}
+		if (item.type === 'reasoning') {
+			const summary = extractReasoningSummary(item);
+			if (summary) {
+				thinkingParts.push(summary);
+			}
 		}
 		if (item.type === 'function_call') {
 			const name = asString(item.name);
@@ -126,18 +134,13 @@ export function responsesOutputToMessage(
 		finishReason = status;
 	}
 
+	const thinking = joinThinking(...thinkingParts);
+	if (thinking) {
+		return { message, finishReason, thinking };
+	}
 	return { message, finishReason };
 }
 
 function extractItemText(item: Record<string, unknown>): string {
-	const content = item.content;
-	if (typeof content === 'string') {
-		return content;
-	}
-	if (!Array.isArray(content)) {
-		return '';
-	}
-	return content
-		.map((part) => (isRecord(part) && typeof part.text === 'string' ? part.text : ''))
-		.join('');
+	return extractTextParts(item.content);
 }

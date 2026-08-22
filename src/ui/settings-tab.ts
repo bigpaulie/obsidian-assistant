@@ -150,6 +150,14 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 							rows: 4,
 						},
 					},
+					{
+						name: 'Show model and token counts',
+						desc: 'Small muted line under assistant replies with the model name and token usage.',
+						control: {
+							type: 'toggle',
+							key: 'showReplyMeta',
+						},
+					},
 				],
 			},
 			{

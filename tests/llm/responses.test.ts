@@ -61,6 +61,26 @@ describe('responsesOutputToMessage', () => {
 		]);
 	});
 
+	it('exposes reasoning summaries as thinking without dropping providerItems', () => {
+		const { message, thinking } = responsesOutputToMessage([
+			{
+				type: 'reasoning',
+				id: 'r',
+				summary: [{ type: 'summary_text', text: 'Consider the vault.' }],
+			},
+			{ type: 'message', content: 'Done.' },
+		]);
+		expect(thinking).toBe('Consider the vault.');
+		expect(message.content).toBe('Done.');
+		expect(message.providerItems).toEqual([
+			{
+				type: 'reasoning',
+				id: 'r',
+				summary: [{ type: 'summary_text', text: 'Consider the vault.' }],
+			},
+		]);
+	});
+
 	it('uses empty content when there are tools but no text, and null when neither', () => {
 		expect(responsesOutputToMessage([{ type: 'function_call', name: 'x', call_id: '1' }]).message.content).toBe(
 			'',

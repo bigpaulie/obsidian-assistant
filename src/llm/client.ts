@@ -1,27 +1,24 @@
-import { requestUrl } from 'obsidian';
 import { DEFAULT_OLLAMA_URL } from '../constants';
 import { debugLog, type DebugPayload } from '../debug';
 import type { VaultAssistantSettings } from '../settings';
-import { isRecord } from '../utils';
-import { EMPTY_MODEL_REPLY, LlmError, errorMessage, sanitizeErrorText } from './errors';
+import { EMPTY_MODEL_REPLY, LlmError, apiErrorMessage, errorMessage } from './errors';
 import { chatCompletionsReasoningEffort, completionSampling, usesResponsesApi } from './model-params';
 import { getApiKeyForProvider, normalizeServerUrl, resolveProviderConfig } from './providers';
 import { messagesToResponsesInput, responsesOutputToMessage, type ResponsesRequest } from './responses';
+import { canonicalizeAssistantContent } from './thinking';
 import { toChatCompletionsTools, toResponsesTools } from './tools-format';
-import type {
-	ChatCompletionRequest,
-	ChatCompletionResponse,
-	ChatMessage,
-	ChatRequest,
-	ModelListResponse,
-} from './types';
+import { getJson, postJson } from './transport';
+import type { ChatCompletionRequest, ChatCompletionResponse, ChatMessage, ChatRequest, ModelListResponse } from './types';
+import { parseUsage, type TokenUsage } from './usage';
 
 export { EMPTY_MODEL_REPLY, LlmError, errorMessage, formatChatError, isLikelyToolsUnsupported } from './errors';
 
 export interface ChatResult {
 	message: ChatMessage;
+	thinking?: string;
 	finishReason?: string;
 	durationMs: number;
+	usage?: TokenUsage;
 }
 
 /**
@@ -75,24 +72,35 @@ export class LlmClient {
 		debugLog(this.settings, 'chat.start', debug);
 
 		try {
-			const { json, status } = await this.postJson(endpoint, body);
+			const { json, status } = await postJson(endpoint, config.headers, body);
 			const durationMs = Date.now() - startedAt;
 			const parsed = json as ChatCompletionResponse;
 			const choice = parsed.choices?.[0];
-			const message = choice?.message;
-			const meta = {
-				...debug,
-				httpStatus: status,
-				durationMs,
-				finishReason: choice?.finish_reason,
-				contentLength: message?.content?.length ?? 0,
-				toolCallCount: message?.tool_calls?.length ?? 0,
-			};
-			if (!message) {
-				throw new LlmError(apiErrorMessage(parsed) || EMPTY_MODEL_REPLY, undefined, meta);
+			const raw = choice?.message;
+			if (!raw) {
+				throw new LlmError(apiErrorMessage(parsed) || EMPTY_MODEL_REPLY, undefined, {
+					...debug,
+					httpStatus: status,
+					durationMs,
+				});
 			}
-			debugLog(this.settings, 'chat.ok', meta);
-			return { message, finishReason: choice?.finish_reason, durationMs };
+			const { content, thinking } = canonicalizeAssistantContent(raw);
+			const toolCalls = raw.tool_calls?.filter((call) => call.function?.name);
+			const message: ChatMessage = {
+				role: 'assistant',
+				content: content?.trim() || (toolCalls && toolCalls.length > 0 ? '' : null),
+			};
+			if (toolCalls && toolCalls.length > 0) {
+				message.tool_calls = toolCalls;
+			}
+			return this.finishReply(
+				message,
+				thinking,
+				choice?.finish_reason,
+				parseUsage(parsed),
+				{ ...debug, httpStatus: status },
+				durationMs,
+			);
 		} catch (error) {
 			throw this.wrapError(error, debug, startedAt);
 		}
@@ -126,26 +134,53 @@ export class LlmClient {
 		debugLog(this.settings, 'chat.start', debug);
 
 		try {
-			const { json, status } = await this.postJson(endpoint, body);
+			const { json, status } = await postJson(endpoint, config.headers, body);
 			const durationMs = Date.now() - startedAt;
-			const parsed = json as { output?: unknown[]; status?: string; error?: { message?: string } };
-			const { message, finishReason } = responsesOutputToMessage(parsed.output, parsed.status);
-			const meta = {
-				...debug,
-				httpStatus: status,
-				durationMs,
+			const parsed = json as { output?: unknown[]; status?: string; error?: { message?: string }; usage?: unknown };
+			const { message, finishReason, thinking } = responsesOutputToMessage(parsed.output, parsed.status);
+			return this.finishReply(
+				message,
+				thinking ?? '',
 				finishReason,
-				contentLength: message.content?.length ?? 0,
-				toolCallCount: message.tool_calls?.length ?? 0,
-			};
-			if (!message.content && !message.tool_calls?.length) {
-				throw new LlmError(apiErrorMessage(parsed) || EMPTY_MODEL_REPLY, undefined, meta);
-			}
-			debugLog(this.settings, 'chat.ok', meta);
-			return { message, finishReason, durationMs };
+				parseUsage(parsed),
+				{ ...debug, httpStatus: status },
+				durationMs,
+			);
 		} catch (error) {
 			throw this.wrapError(error, debug, startedAt);
 		}
+	}
+
+	private finishReply(
+		message: ChatMessage,
+		thinking: string,
+		finishReason: string | undefined,
+		usage: TokenUsage | undefined,
+		debug: DebugPayload,
+		durationMs: number,
+	): ChatResult {
+		const meta: DebugPayload = {
+			...debug,
+			durationMs,
+			finishReason,
+			contentLength: message.content?.length ?? 0,
+			toolCallCount: message.tool_calls?.length ?? 0,
+			promptTokens: usage?.promptTokens,
+			completionTokens: usage?.completionTokens,
+			totalTokens: usage?.totalTokens,
+		};
+		if (!message.content && !message.tool_calls?.length && !thinking) {
+			throw new LlmError(EMPTY_MODEL_REPLY, undefined, meta);
+		}
+		debugLog(this.settings, 'chat.ok', meta);
+		const result: ChatResult = { message, finishReason, durationMs };
+		if (thinking) {
+			result.thinking = thinking;
+		}
+		if (usage) {
+			result.usage = usage;
+		}
+		return result;
 	}
 
 	async listModels(): Promise<string[]> {
@@ -156,7 +191,7 @@ export class LlmClient {
 		const startedAt = Date.now();
 		debugLog(this.settings, 'models.start', debug);
 		try {
-			const { json, status } = await this.getJson(endpoint);
+			const { json, status } = await getJson(endpoint, config.headers);
 			const durationMs = Date.now() - startedAt;
 			const parsed = json as ModelListResponse;
 			const ids = (parsed.data ?? [])
@@ -210,29 +245,6 @@ export class LlmClient {
 			}
 		}
 	}
-
-	private async postJson(url: string, body: unknown): Promise<{ json: unknown; status: number }> {
-		const config = resolveProviderConfig(this.settings);
-		const response = await requestUrl({
-			url,
-			method: 'POST',
-			headers: config.headers,
-			body: JSON.stringify(body),
-			throw: false,
-		});
-		return { json: parseResponse(response.status, response.text), status: response.status };
-	}
-
-	private async getJson(url: string): Promise<{ json: unknown; status: number }> {
-		const config = resolveProviderConfig(this.settings);
-		const response = await requestUrl({
-			url,
-			method: 'GET',
-			headers: config.headers,
-			throw: false,
-		});
-		return { json: parseResponse(response.status, response.text), status: response.status };
-	}
 }
 
 function stripProviderItems(messages: ChatMessage[]): ChatMessage[] {
@@ -241,49 +253,4 @@ function stripProviderItems(messages: ChatMessage[]): ChatMessage[] {
 		delete copy.providerItems;
 		return copy;
 	});
-}
-
-function parseResponse(status: number, text: string): unknown {
-	let json: unknown = undefined;
-	if (text) {
-		try {
-			json = JSON.parse(text) as unknown;
-		} catch {
-			json = undefined;
-		}
-	}
-	if (status >= 400) {
-		const excerpt = text.trim() ? sanitizeErrorText(text.trim().slice(0, 800)) : '';
-		throw new LlmError(apiErrorMessage(json) || excerpt || `Provider request failed (${status}).`, status, {
-			httpStatus: status,
-			body: excerpt,
-		});
-	}
-	if (json === undefined) {
-		throw new LlmError('Provider returned a non-JSON response.', status, { httpStatus: status });
-	}
-	return json;
-}
-
-function apiErrorMessage(json: unknown): string | undefined {
-	if (!isRecord(json)) {
-		return undefined;
-	}
-	if (typeof json.error === 'string' && json.error.trim()) {
-		return sanitizeErrorText(json.error);
-	}
-	if (isRecord(json.error)) {
-		if (typeof json.error.message === 'string' && json.error.message.trim()) {
-			return sanitizeErrorText(json.error.message);
-		}
-		try {
-			return sanitizeErrorText(JSON.stringify(json.error));
-		} catch {
-			return undefined;
-		}
-	}
-	if (typeof json.message === 'string' && json.message.trim()) {
-		return sanitizeErrorText(json.message);
-	}
-	return undefined;
 }

@@ -1,7 +1,7 @@
 {
 	"id": "vault-assistant",
 	"name": "Vault Assistant",
-	"version": "1.3.3",
+	"version": "1.4.0",
 	"minAppVersion": "1.13.0",
 	"description": "Chat with an OpenAI-compatible model about your vault. Local RAG, plus apply-gated note create and update.",
 	"author": "Paul Purcel",

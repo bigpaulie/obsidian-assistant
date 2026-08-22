@@ -14,6 +14,10 @@ export function asString(value: unknown): string | undefined {
 	return typeof value === 'string' ? value : undefined;
 }
 
+export function asFiniteNumber(value: unknown): number | undefined {
+	return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 /** Parse a settings textarea of folder paths (one per line). */
 export function parseFolderList(raw: string): string[] {
 	return raw

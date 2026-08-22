@@ -64,6 +64,7 @@ export interface ChatCompletionChoice {
 
 export interface ChatCompletionResponse {
 	choices?: ChatCompletionChoice[];
+	usage?: unknown;
 	error?: { message?: string; type?: string };
 }
 
