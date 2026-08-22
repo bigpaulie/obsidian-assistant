@@ -35,12 +35,12 @@ If the vault is in iCloud, copy or symlink with `manifest.json` already in place
 npm run dev    # watch build to main.js
 npm run build  # typecheck src/ and production bundle
 npm test       # typecheck tests, then Vitest
-npm run lint   # ESLint, including eslint-plugin-obsidianmd
+npm run lint   # ESLint, including eslint-plugin-obsidianmd (warnings fail)
 ```
 
-Source lives in `src/`. `src/main.ts` only handles plugin lifecycle. TypeScript is bundled with esbuild.
+Source lives in `src/`. `src/main.ts` only handles plugin lifecycle. TypeScript is bundled with esbuild. Tests stay in repo-root `tests/`, not under `src/`.
 
-`tsconfig.json` includes only `src/**/*.ts`. The community plugin review typechecks that project, so tests and Vitest stay out of it. `tsconfig.test.json` extends it and adds `tests/` plus `vitest.config.ts`. `npm test` runs `tsc` against that file, then Vitest. The Vitest alias `obsidian` → `tests/stubs/obsidian-runtime.ts` is runtime-only and is not a TypeScript `paths` mapping.
+`tsconfig.json` includes only `src/**/*.ts`. The community plugin review typechecks that project, so tests and Vitest stay out of it. `tsconfig.test.json` extends it and includes only `tests/**/*.ts` (not plugin `src/` as roots). `npm test` runs `tsc` against that file, then Vitest. The Vitest alias `obsidian` → `tests/stubs/obsidian-runtime.ts` is runtime-only and is not a TypeScript `paths` mapping. Do not add a file named `obsidian.ts`, and do not put tests inside `src/`.
 
 ## Release
 

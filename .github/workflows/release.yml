@@ -21,9 +21,10 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Build plugin
+      - name: Lint, test, and build
         run: |
           npm ci
+          npm run lint
           npm test
           npm run build
 
