@@ -1,15 +1,13 @@
 import { MAX_TOOL_RESULT_CHARS } from '../constants';
 import type { ToolSpec } from '../llm/types';
 import { asString, isRecord, truncate } from '../utils';
-import { readNote } from '../vault/notes';
+import { readNote, resolveMoveTarget } from '../vault/notes';
 import { resolveMarkdownFile, sanitizeVaultPath } from '../vault/paths';
 import type VaultAssistantPlugin from '../main';
 
-export interface NoteProposal {
-	action: 'create' | 'update';
-	path: string;
-	content: string;
-}
+export type NoteProposal =
+	| { action: 'create' | 'update'; path: string; content: string }
+	| { action: 'move'; path: string; destination: string };
 
 export type ToolOutcome =
 	| { type: 'text'; text: string }
@@ -71,6 +69,22 @@ export function getToolDefinitions(includeSearch: boolean): ToolSpec[] {
 				required: ['path', 'content'],
 			},
 		},
+		{
+			name: 'propose_move_note',
+			description:
+				'Propose moving an existing markdown note to another folder, keeping the filename. The user must click Apply in chat before anything is written. Use an empty destination_folder for the vault root.',
+			parameters: {
+				type: 'object',
+				properties: {
+					path: { type: 'string', description: 'Existing vault path of the note to move' },
+					destination_folder: {
+						type: 'string',
+						description: 'Destination folder inside the vault. Empty string means vault root.',
+					},
+				},
+				required: ['path', 'destination_folder'],
+			},
+		},
 	);
 	return tools;
 }
@@ -90,6 +104,8 @@ export async function executeTool(
 			return proposeNote(plugin, 'create', rawArgs);
 		case 'propose_update_note':
 			return proposeNote(plugin, 'update', rawArgs);
+		case 'propose_move_note':
+			return proposeMove(plugin, rawArgs);
 		default:
 			return { type: 'text', text: `Unknown tool: ${name}` };
 	}
@@ -150,6 +166,25 @@ export function buildNoteProposal(
 	return { ok: true, proposal: { action, path: sanitized, content } };
 }
 
+/** Validate a move proposal. Never writes disk. Empty destination folder means vault root. */
+export function buildMoveProposal(
+	plugin: VaultAssistantPlugin,
+	path: string | undefined,
+	destinationFolder: string | undefined,
+): ProposalBuildResult {
+	if (!path || destinationFolder === undefined) {
+		return { ok: false, error: 'move requires path and destination_folder.' };
+	}
+	const result = resolveMoveTarget(plugin.app, path, destinationFolder);
+	if (!result.ok) {
+		return result;
+	}
+	return {
+		ok: true,
+		proposal: { action: 'move', path: result.file.path, destination: result.destination },
+	};
+}
+
 function proposeNote(
 	plugin: VaultAssistantPlugin,
 	action: 'create' | 'update',
@@ -168,6 +203,25 @@ function proposeNote(
 		type: 'proposal',
 		proposal: result.proposal,
 		text: `Proposal recorded for ${action} at ${result.proposal.path}. The user will review it in chat and must click Apply before the file is written. Do not claim the note was saved.`,
+	};
+}
+
+function proposeMove(plugin: VaultAssistantPlugin, rawArgs: unknown): ToolOutcome {
+	const result = buildMoveProposal(
+		plugin,
+		asString(field(rawArgs, 'path')),
+		asString(field(rawArgs, 'destination_folder')),
+	);
+	if (!result.ok) {
+		return { type: 'text', text: result.error };
+	}
+	if (result.proposal.action !== 'move') {
+		return { type: 'text', text: 'Unable to record move proposal.' };
+	}
+	return {
+		type: 'proposal',
+		proposal: result.proposal,
+		text: `Proposal recorded for move from ${result.proposal.path} to ${result.proposal.destination}. The user will review it in chat and must click Apply before the file is moved. Do not claim the note was moved.`,
 	};
 }
 

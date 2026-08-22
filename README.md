@@ -1,6 +1,6 @@
 # Vault Assistant
 
-Chat with an OpenAI-compatible model about your Obsidian vault. Search stays on your device. Notes are only sent when you chat, and only the pieces needed to answer. Creating or updating a note always waits for **Apply**.
+Chat with an OpenAI-compatible model about your Obsidian vault. Search stays on your device. Notes are only sent when you chat, and only the pieces needed to answer. Creating, updating, or moving a note always waits for **Apply**.
 
 ![Vault Assistant chat in the sidebar, answering a question about a referenced note](./screenshot.png)
 
@@ -12,7 +12,7 @@ Requires Obsidian 1.13.0+.
 - Bring your own key: OpenAI, OpenRouter, or Ollama (localhost or a custom URL)
 - Local note search (no cloud indexing, no embeddings)
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop
-- Propose new or updated notes in chat; nothing is written until you apply it
+- Propose new, updated, or moved notes in chat; nothing is written until you apply it
 
 ## Getting started
 
@@ -38,7 +38,7 @@ Ollama must expose `/v1/chat/completions`. OpenAI gpt-5.4+ models (including gpt
 - Ask a question. Matching notes are retrieved locally and sent with your prompt when search is enabled.
 - **Add note** picks any markdown note. **Add open note** uses notes already open in tabs. On desktop, type `[[` to insert a wikilink. Open notes are never attached unless you add them.
 - Referenced notes take priority over search results (up to 10).
-- When the assistant wants to create or update a note, review the card and select **Apply** or **Dismiss**. **Open note** is available after you apply.
+- When the assistant wants to create, update, or move a note, review the card and select **Apply** or **Dismiss**. **Open note** is available after you apply.
 
 ## Commands
 

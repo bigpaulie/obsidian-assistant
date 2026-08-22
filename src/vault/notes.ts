@@ -48,6 +48,73 @@ export async function updateNote(app: App, rawPath: string, content: string): Pr
 	return file;
 }
 
+export type MoveTargetResult =
+	| { ok: true; file: TFile; destination: string }
+	| { ok: false; error: string };
+
+/**
+ * Validate a move to another folder. Filename is unchanged. Never writes disk.
+ * Empty destination folder means vault root.
+ */
+export function resolveMoveTarget(app: App, rawPath: string, destFolderRaw: string): MoveTargetResult {
+	if (!sanitizeVaultPath(rawPath)) {
+		return { ok: false, error: 'Invalid path. Use a relative vault path to a markdown note.' };
+	}
+	const file = resolveMarkdownFile(app, rawPath);
+	if (!file) {
+		return { ok: false, error: 'Note not found. Use an existing markdown note path.' };
+	}
+
+	const folder = parseDestinationFolder(destFolderRaw);
+	if (!folder.ok) {
+		return folder;
+	}
+	if (folder.path && app.vault.getFileByPath(folder.path)) {
+		return { ok: false, error: 'Destination folder path is a file, not a folder.' };
+	}
+
+	const destination = folder.path
+		? normalizePath(`${folder.path}/${filename(file.path)}`)
+		: filename(file.path);
+	if (destination === file.path) {
+		return { ok: false, error: 'Note is already in that folder.' };
+	}
+	if (app.vault.getAbstractFileByPath(destination)) {
+		return { ok: false, error: 'A file already exists at the destination.' };
+	}
+	return { ok: true, file, destination };
+}
+
+export async function moveNote(app: App, rawPath: string, destFolderRaw: string): Promise<TFile> {
+	const result = resolveMoveTarget(app, rawPath, destFolderRaw);
+	if (!result.ok) {
+		throw new Error(result.error);
+	}
+	await ensureFolder(app, dirname(result.destination));
+	await app.fileManager.renameFile(result.file, result.destination);
+	return app.vault.getFileByPath(result.destination) ?? result.file;
+}
+
+function parseDestinationFolder(raw: string): { ok: true; path: string } | { ok: false; error: string } {
+	const trimmed = raw.trim().replace(/^\[\[/, '').replace(/\]\]$/, '').trim();
+	if (!trimmed) {
+		return { ok: true, path: '' };
+	}
+	const sanitized = sanitizeVaultPath(raw);
+	if (!sanitized) {
+		return { ok: false, error: 'Invalid destination folder. Use a relative vault folder path.' };
+	}
+	if (sanitized.toLowerCase().endsWith('.md')) {
+		return { ok: false, error: 'destination_folder must be a folder, not a markdown note path.' };
+	}
+	return { ok: true, path: sanitized };
+}
+
+function filename(path: string): string {
+	const idx = path.lastIndexOf('/');
+	return idx >= 0 ? path.slice(idx + 1) : path;
+}
+
 async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	if (!folderPath) {
 		return;

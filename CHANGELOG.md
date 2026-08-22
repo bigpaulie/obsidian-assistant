@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Propose moving a note to another folder in chat; nothing is written until you apply it.
+
 ## [1.4.1] - 2026-08-22
 
 ### Fixed
