@@ -6,7 +6,25 @@ on:
       - '*'
 
 jobs:
+  scorecard-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install like the community scanner
+        run: |
+          npm ci --ignore-scripts
+          test -f node_modules/obsidian/obsidian.d.ts
+          npm run lint
+
   build:
+    needs: scorecard-install
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -21,9 +39,10 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Build plugin
+      - name: Lint, test, and build
         run: |
           npm ci
+          npm run lint
           npm test
           npm run build
 
