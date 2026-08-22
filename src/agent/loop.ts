@@ -1,7 +1,15 @@
 import { MAX_TOOL_ROUNDS } from '../constants';
 import { debugLog, type DebugPayload } from '../debug';
-import { EMPTY_MODEL_REPLY, LlmClient, LlmError, errorMessage, isLikelyToolsUnsupported } from '../llm/client';
+import {
+	EMPTY_MODEL_REPLY,
+	LlmClient,
+	LlmError,
+	errorMessage,
+	isLikelyToolsUnsupported,
+	type ChatResult,
+} from '../llm/client';
 import type { ChatMessage, ChatToolCall } from '../llm/types';
+import { sumUsage, type TokenUsage } from '../llm/usage';
 import type VaultAssistantPlugin from '../main';
 import { retrieveContext } from '../rag/retriever';
 import { getActiveMarkdownPath } from '../vault/notes';
@@ -19,9 +27,12 @@ export interface AgentRunOptions {
 
 export interface AgentRunResult {
 	assistantText: string;
+	thinking?: string;
 	proposals: NoteProposal[];
 	messages: ChatMessage[];
 	debug: DebugPayload;
+	usage?: TokenUsage;
+	model: string;
 }
 
 interface AgentTrace {
@@ -31,6 +42,9 @@ interface AgentTrace {
 	tools: string[];
 	fallback: boolean;
 	finishReason?: string;
+	thinking?: string;
+	usage?: TokenUsage;
+	model: string;
 }
 
 /**
@@ -76,11 +90,15 @@ export async function runAgent(
 		rounds: 0,
 		tools: [],
 		fallback: false,
+		model: plugin.settings.model.trim(),
 	};
 
 	try {
 		return await runWithTools(plugin, client, messages, tools, proposals, options, trace);
 	} catch (error) {
+		if (options.cancelled()) {
+			return stopped(messages, proposals, trace);
+		}
 		if (!isLikelyToolsUnsupported(error)) {
 			throw error;
 		}
@@ -109,14 +127,8 @@ async function runWithTools(
 		}
 		trace.rounds = round + 1;
 		setStatus(plugin, options, `Requesting model (round ${round + 1}, tools)…`);
-		const result = await client.chat({
-			model: plugin.settings.model.trim(),
-			messages,
-			tools,
-			temperature: plugin.settings.temperature,
-			max_tokens: plugin.settings.maxTokens,
-		});
-		trace.finishReason = result.finishReason;
+		const result = await chatTurn(client, plugin, messages, tools);
+		rememberTurn(trace, result);
 		if (options.cancelled()) {
 			return stopped(messages, proposals, trace);
 		}
@@ -124,6 +136,7 @@ async function runWithTools(
 		const message = result.message;
 		const toolCalls = message.tool_calls?.filter((call) => call.function?.name);
 		if (!toolCalls || toolCalls.length === 0) {
+			trace.thinking = result.thinking;
 			const text = message.content?.trim() || EMPTY_MODEL_REPLY;
 			messages.push({ role: 'assistant', content: text });
 			return finished(text, proposals, messages, trace);
@@ -157,12 +170,9 @@ async function runWithTools(
 	}
 
 	setStatus(plugin, options, 'Requesting model (tool limit, no tools)…');
-	const final = await client.chat({
-		model: plugin.settings.model.trim(),
-		messages,
-		temperature: plugin.settings.temperature,
-		max_tokens: plugin.settings.maxTokens,
-	});
+	const final = await chatTurn(client, plugin, messages);
+	rememberTurn(trace, final);
+	trace.thinking = final.thinking;
 	trace.finishReason = final.finishReason;
 	const text = final.message.content?.trim() || 'Reached the tool-call limit.';
 	messages.push({ role: 'assistant', content: text });
@@ -180,17 +190,33 @@ async function runWithoutTools(
 		return stopped(messages, [], trace);
 	}
 	setStatus(plugin, options, 'Requesting model (no tools)…');
-	const result = await client.chat({
-		model: plugin.settings.model.trim(),
-		messages,
-		temperature: plugin.settings.temperature,
-		max_tokens: plugin.settings.maxTokens,
-	});
-	trace.finishReason = result.finishReason;
+	const result = await chatTurn(client, plugin, messages);
+	rememberTurn(trace, result);
+	trace.thinking = result.thinking;
 	trace.rounds = Math.max(trace.rounds, 1);
 	const text = result.message.content?.trim() || EMPTY_MODEL_REPLY;
 	messages.push({ role: 'assistant', content: text });
 	return finished(text, [], messages, trace);
+}
+
+async function chatTurn(
+	client: LlmClient,
+	plugin: VaultAssistantPlugin,
+	messages: ChatMessage[],
+	tools?: ReturnType<typeof getToolDefinitions>,
+): Promise<ChatResult> {
+	return client.chat({
+		model: plugin.settings.model.trim(),
+		messages,
+		tools,
+		temperature: plugin.settings.temperature,
+		max_tokens: plugin.settings.maxTokens,
+	});
+}
+
+function rememberTurn(trace: AgentTrace, result: ChatResult): void {
+	trace.finishReason = result.finishReason;
+	trace.usage = sumUsage([trace.usage, result.usage]);
 }
 
 function parseArgs(call: ChatToolCall, plugin: VaultAssistantPlugin): unknown {
@@ -228,8 +254,11 @@ function finished(
 ): AgentRunResult {
 	return {
 		assistantText,
+		thinking: trace.thinking,
 		proposals,
 		messages,
+		usage: trace.usage,
+		model: trace.model,
 		debug: {
 			durationMs: Date.now() - trace.startedAt,
 			rounds: trace.rounds,
@@ -237,6 +266,9 @@ function finished(
 			ragHits: trace.ragHits,
 			fallback: trace.fallback,
 			finishReason: trace.finishReason,
+			promptTokens: trace.usage?.promptTokens,
+			completionTokens: trace.usage?.completionTokens,
+			totalTokens: trace.usage?.totalTokens,
 		},
 	};
 }

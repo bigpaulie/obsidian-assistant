@@ -73,6 +73,26 @@
 	letter-spacing: 0.04em;
 }
 
+.vault-assistant-thinking {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.vault-assistant-thinking summary {
+	cursor: pointer;
+}
+
+.vault-assistant-thinking-body {
+	margin-top: var(--size-2-2);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.vault-assistant-msg-meta {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
 .vault-assistant-msg-body {
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
