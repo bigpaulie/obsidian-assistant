@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Plugin TypeScript project stays `src/` only (tests remain at repo-root `tests/`), so the community review typecheck is not poisoned by the Vitest `obsidian` stub.
+- `esbuild` is pinned inside Vite 8’s optional peer range so the community scanner’s `npm ci --ignore-scripts` (npm 10) can install `obsidian` types instead of reporting every API as `error`.
 - `npm run lint` fails on ESLint warnings, and the release workflow runs lint before publishing.
 
 ## [1.4.0] - 2026-08-22

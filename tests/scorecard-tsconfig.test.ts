@@ -59,4 +59,23 @@ describe('scorecard TypeScript layout', () => {
 			expect(relative.startsWith('tests/')).toBe(false);
 		}
 	});
+
+	it('pins esbuild inside Vite 8’s optional peer range', () => {
+		const pkg = readJson('package.json');
+		const devDependencies = pkg.devDependencies as Record<string, string>;
+		const version = devDependencies.esbuild ?? '';
+		expect(version).toMatch(/^0\.2[78]\.\d+$/);
+		const lock = readJson('package-lock.json');
+		const packages = lock.packages as Record<string, { optional?: boolean; version?: string }>;
+		const esbuildTrees = Object.entries(packages).filter(
+			([key]) => key === 'node_modules/esbuild' || key.endsWith('/node_modules/esbuild'),
+		);
+		expect(esbuildTrees).toHaveLength(1);
+		expect(esbuildTrees[0]?.[1].version).toBe(version);
+		const requiredPlatforms = Object.entries(packages)
+			.filter(([key]) => key.includes('@esbuild/'))
+			.filter(([, value]) => value.optional !== true)
+			.map(([key]) => key);
+		expect(requiredPlatforms).toEqual([]);
+	});
 });

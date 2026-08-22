@@ -42,6 +42,8 @@ Source lives in `src/`. `src/main.ts` only handles plugin lifecycle. TypeScript 
 
 `tsconfig.json` includes only `src/**/*.ts`. The community plugin review typechecks that project, so tests and Vitest stay out of it. `tsconfig.test.json` extends it and includes only `tests/**/*.ts` (not plugin `src/` as roots). `npm test` runs `tsc` against that file, then Vitest. The Vitest alias `obsidian` → `tests/stubs/obsidian-runtime.ts` is runtime-only and is not a TypeScript `paths` mapping. Do not add a file named `obsidian.ts`, and do not put tests inside `src/`.
 
+The community scanner runs `npm ci --ignore-scripts` on npm 10. Keep `esbuild` inside Vite 8’s optional peer range (`^0.27.0 || ^0.28.0`) so that install succeeds and `obsidian` types resolve. Do not add `.npmrc` `engine-strict`. CI has a Node 20 job that repeats that install and lint.
+
 ## Release
 
 Release artifacts: `main.js`, `manifest.json`, and `styles.css`. Do not commit `main.js`, `data.json`, or `search-index.json`. Do not attach locally built assets; GitHub Actions builds and attests them.
