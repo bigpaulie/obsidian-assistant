@@ -48,8 +48,8 @@ Ollama must expose `/v1/chat/completions`. OpenAI gpt-5.4+ models (including gpt
 
 ## Mobile
 
-- Enter inserts a newline. Use **Send** to submit.
-- The composer stays above the keyboard. Use **Done** or tap the transcript to hide it. **Send** still submits.
+- Enter inserts a newline. Use **Send** in the composer field to submit.
+- The composer stays above the keyboard. Tap the transcript to hide it.
 - Use **Add note** and **Add open note**. The `[[` picker does not open on a phone, so the keyboard stays focused.
 - `localhost` Ollama is usually unreachable from a phone. Set a reachable URL, or use OpenAI / OpenRouter.
 

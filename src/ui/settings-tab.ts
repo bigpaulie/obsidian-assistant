@@ -23,96 +23,107 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 
 		return [
 			{
-				name: 'Provider',
-				desc: 'OpenAI-compatible endpoint used for chat.',
-				render: (setting) => {
-					setting.addDropdown((dropdown) => {
-						(Object.keys(PROVIDER_LABELS) as ProviderId[]).forEach((id) => {
-							dropdown.addOption(id, PROVIDER_LABELS[id]);
-						});
-						dropdown.setValue(settings.provider);
-						dropdown.onChange(async (value) => {
-							settings.provider = value as ProviderId;
-							if (!settings.model.trim()) {
-								settings.model = DEFAULT_MODELS[settings.provider];
-							}
-							this.detectedModels = [];
-							await this.plugin.saveSettings();
-							this.update();
-						});
-					});
-				},
-			},
-			{
-				name: 'API key',
-				desc: 'OpenAI API key.',
-				visible: () => this.plugin.settings.provider === 'openai',
-				render: (setting) => this.renderApiKey(setting, 'openaiApiKey'),
-			},
-			{
-				name: 'API key',
-				desc: 'OpenRouter API key.',
-				visible: () => this.plugin.settings.provider === 'openrouter',
-				render: (setting) => this.renderApiKey(setting, 'openrouterApiKey'),
-			},
-			{
-				name: 'Ollama URL',
-				desc: 'Leave empty for the local default, or enter a custom host.',
-				visible: () => this.plugin.settings.provider === 'ollama',
-				control: {
-					type: 'text',
-					key: 'ollamaUrl',
-					placeholder: DEFAULT_OLLAMA_URL,
-				},
-			},
-			{
-				name: 'API key (optional)',
-				desc: 'Only needed if your Ollama-compatible server requires a bearer token.',
-				visible: () => this.isRemoteOllama(),
-				render: (setting) => this.renderApiKey(setting, 'ollamaApiKey'),
-			},
-			{
-				name: 'Model',
-				desc: 'Name of the chat model on your provider.',
-				render: (setting) => {
-					if (this.detectedModels.length > 0) {
-						setting.addDropdown((dropdown) => {
-							for (const id of this.detectedModels) {
-								dropdown.addOption(id, id);
-							}
-							if (!this.detectedModels.includes(settings.model)) {
-								dropdown.addOption(settings.model, settings.model);
-							}
-							dropdown.setValue(settings.model);
-							dropdown.onChange(async (value) => {
-								settings.model = value;
-								await this.plugin.saveSettings();
+				type: 'group',
+				heading: 'Provider',
+				cls: 'vault-assistant-settings-group',
+				items: [
+					{
+						name: 'Provider',
+						desc: 'OpenAI-compatible endpoint used for chat.',
+						render: (setting) => {
+							setting.addDropdown((dropdown) => {
+								(Object.keys(PROVIDER_LABELS) as ProviderId[]).forEach((id) => {
+									dropdown.addOption(id, PROVIDER_LABELS[id]);
+								});
+								dropdown.setValue(settings.provider);
+								dropdown.onChange(async (value) => {
+									settings.provider = value as ProviderId;
+									if (!settings.model.trim()) {
+										settings.model = DEFAULT_MODELS[settings.provider];
+									}
+									this.detectedModels = [];
+									await this.plugin.saveSettings();
+									this.update();
+								});
 							});
-						});
-					}
-					setting.addText((text) => {
-						text.setPlaceholder(DEFAULT_MODELS[settings.provider]);
-						text.setValue(settings.model);
-						text.onChange(async (value) => {
-							settings.model = value.trim();
-							await this.plugin.saveSettings();
-						});
-					});
-					setting.addButton((button) => {
-						button.setButtonText('Detect models');
-						button.onClick(() => void this.detectModels());
-					});
-				},
-			},
-			{
-				name: 'Test connection',
-				desc: 'Calls the provider /models endpoint.',
-				render: (setting) => {
-					setting.addButton((button) => {
-						button.setButtonText('Test');
-						button.onClick(() => void this.testConnection());
-					});
-				},
+						},
+					},
+					{
+						name: 'API key',
+						desc: 'OpenAI API key.',
+						visible: () => this.plugin.settings.provider === 'openai',
+						render: (setting) => this.renderApiKey(setting, 'openaiApiKey'),
+					},
+					{
+						name: 'API key',
+						desc: 'OpenRouter API key.',
+						visible: () => this.plugin.settings.provider === 'openrouter',
+						render: (setting) => this.renderApiKey(setting, 'openrouterApiKey'),
+					},
+					{
+						name: 'Ollama URL',
+						desc: 'Leave empty for the local default, or enter a custom host.',
+						visible: () => this.plugin.settings.provider === 'ollama',
+						control: {
+							type: 'text',
+							key: 'ollamaUrl',
+							placeholder: DEFAULT_OLLAMA_URL,
+						},
+					},
+					{
+						name: 'API key (optional)',
+						desc: 'Only needed if your Ollama-compatible server requires a bearer token.',
+						visible: () => this.isRemoteOllama(),
+						render: (setting) => this.renderApiKey(setting, 'ollamaApiKey'),
+					},
+					{
+						name: 'Model',
+						desc: 'Name of the chat model on your provider.',
+						render: (setting) => {
+							setting.setClass('vault-assistant-setting-model');
+							if (this.detectedModels.length > 0) {
+								setting.addDropdown((dropdown) => {
+									for (const id of this.detectedModels) {
+										dropdown.addOption(id, id);
+									}
+									if (!this.detectedModels.includes(settings.model)) {
+										dropdown.addOption(settings.model, settings.model);
+									}
+									dropdown.setValue(settings.model);
+									dropdown.onChange(async (value) => {
+										settings.model = value;
+										await this.plugin.saveSettings();
+									});
+								});
+							} else {
+								setting.addText((text) => {
+									text.setPlaceholder(DEFAULT_MODELS[settings.provider]);
+									text.setValue(settings.model);
+									text.onChange(async (value) => {
+										settings.model = value.trim();
+										await this.plugin.saveSettings();
+									});
+								});
+							}
+							setting.addExtraButton((button) => {
+								button.setIcon('refresh-cw');
+								button.setTooltip('Detect models');
+								button.onClick(() => void this.detectModels());
+							});
+						},
+					},
+					{
+						name: 'Test connection',
+						desc: 'Calls the provider /models endpoint.',
+						render: (setting) => {
+							setting.setClass('vault-assistant-setting-action');
+							setting.addButton((button) => {
+								button.setButtonText('Test');
+								button.onClick(() => void this.testConnection());
+							});
+						},
+					},
+				],
 			},
 			{
 				type: 'group',
@@ -198,6 +209,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 						name: 'Search index',
 						desc: `Indexed chunks: ${this.plugin.indexer.chunkCount}. Stored in the plugin folder, not as a note.`,
 						render: (setting) => {
+							setting.setClass('vault-assistant-setting-action');
 							setting.addButton((button) => {
 								button.setButtonText('Rebuild index');
 								button.onClick(() => void this.rebuildIndex(button.buttonEl));
@@ -209,6 +221,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 			{
 				type: 'group',
 				heading: 'Privacy',
+				cls: 'vault-assistant-settings-group',
 				items: [
 					{
 						name: 'I understand what is sent to the provider',
@@ -223,6 +236,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 			{
 				type: 'group',
 				heading: 'Advanced',
+				cls: 'vault-assistant-settings-group',
 				items: [
 					{
 						name: 'Debug mode',

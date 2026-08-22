@@ -18,7 +18,6 @@ export class ChatView extends ItemView {
 	private inputEl!: HTMLTextAreaElement;
 	private sendBtn!: HTMLButtonElement;
 	private stopBtn!: HTMLButtonElement;
-	private doneBtn?: HTMLButtonElement;
 	private addNoteBtn!: HTMLButtonElement;
 	private addOpenNoteBtn!: HTMLButtonElement;
 	private messagesHost = new Component();
@@ -72,31 +71,30 @@ export class ChatView extends ItemView {
 		const composer = root.createDiv({ cls: 'vault-assistant-composer' });
 		this.chipsEl = composer.createDiv({ cls: 'vault-assistant-chips' });
 		this.chipsEl.hide();
-		this.inputEl = composer.createEl('textarea', {
+		const field = composer.createDiv({ cls: 'vault-assistant-composer-field' });
+		this.inputEl = field.createEl('textarea', {
 			attr: {
-				rows: Platform.isMobile ? '2' : '3',
+				rows: '1',
 				placeholder: Platform.isMobile
 					? 'Ask about your notes.'
 					: 'Ask about your notes. Type [[ to add a note.',
 				...(Platform.isMobile ? { enterkeyhint: 'enter' } : {}),
 			},
 		});
+		this.stopBtn = field.createEl('button', { text: 'Stop' });
+		this.stopBtn.setAttr('aria-label', 'Stop');
+		this.stopBtn.hide();
+		this.sendBtn = field.createEl('button', { cls: 'mod-cta', text: 'Send' });
+		this.sendBtn.setAttr('aria-label', 'Send');
 		const buttons = composer.createDiv({ cls: 'vault-assistant-composer-actions' });
 		const addGroup = buttons.createDiv({ cls: 'vault-assistant-composer-add' });
 		this.addNoteBtn = addGroup.createEl('button', { text: 'Add note' });
 		this.addOpenNoteBtn = addGroup.createEl('button', { text: 'Add open note' });
-		const sendGroup = buttons.createDiv({ cls: 'vault-assistant-composer-send' });
-		if (Platform.isMobile) {
-			this.doneBtn = sendGroup.createEl('button', { text: 'Done' });
-			this.doneBtn.setAttr('aria-label', 'Hide keyboard');
-			this.doneBtn.hide();
-		}
-		this.stopBtn = sendGroup.createEl('button', { text: 'Stop' });
-		this.stopBtn.hide();
-		this.sendBtn = sendGroup.createEl('button', { cls: 'mod-cta', text: 'Send' });
 
 		this.registerDomEvent(this.addNoteBtn, 'click', () => this.openNotePicker());
 		this.registerDomEvent(this.addOpenNoteBtn, 'click', () => this.addOpenNote());
+		this.registerDomEvent(this.sendBtn, 'pointerdown', (event) => event.preventDefault());
+		this.registerDomEvent(this.stopBtn, 'pointerdown', (event) => event.preventDefault());
 		this.registerDomEvent(this.sendBtn, 'click', () => void this.send());
 		this.registerDomEvent(this.stopBtn, 'click', () => this.stop());
 		this.registerDomEvent(this.inputEl, 'keydown', (event) => {
@@ -108,7 +106,10 @@ export class ChatView extends ItemView {
 				void this.send();
 			}
 		});
-		this.registerDomEvent(this.inputEl, 'input', () => this.maybeOpenWikiSuggest());
+		this.registerDomEvent(this.inputEl, 'input', () => {
+			this.syncComposerHeight();
+			this.maybeOpenWikiSuggest();
+		});
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateOpenNoteButton()));
 		this.registerEvent(this.app.workspace.on('layout-change', () => {
 			this.updateOpenNoteButton();
@@ -116,6 +117,7 @@ export class ChatView extends ItemView {
 		}));
 		this.setupMobileKeyboard();
 		this.updateOpenNoteButton();
+		this.syncComposerHeight();
 	}
 
 	async onClose(): Promise<void> {
@@ -239,21 +241,14 @@ export class ChatView extends ItemView {
 			}, 300);
 		});
 		this.registerDomEvent(this.inputEl, 'focus', () => {
-			this.doneBtn?.show();
 			sync();
 		});
 		this.registerDomEvent(this.inputEl, 'blur', () => {
-			this.doneBtn?.hide();
 			sync();
 		});
 		this.registerDomEvent(this.messagesEl, 'click', () => {
 			this.inputEl.blur();
 		});
-		if (this.doneBtn) {
-			this.registerDomEvent(this.doneBtn, 'click', () => {
-				this.inputEl.blur();
-			});
-		}
 		sync();
 	}
 
@@ -308,6 +303,7 @@ export class ChatView extends ItemView {
 		const cursor = start + link.length;
 		this.inputEl.setSelectionRange(cursor, cursor);
 		this.inputEl.focus();
+		this.syncComposerHeight();
 	}
 
 	private addChip(file: TFile): void {
@@ -362,6 +358,7 @@ export class ChatView extends ItemView {
 		}
 
 		this.inputEl.value = '';
+		this.syncComposerHeight();
 		if (Platform.isMobile) {
 			this.inputEl.blur();
 		}
@@ -490,13 +487,17 @@ export class ChatView extends ItemView {
 			this.addNoteBtn.setAttr('disabled', 'true');
 			this.addOpenNoteBtn.setAttr('disabled', 'true');
 			this.inputEl.setAttr('disabled', 'true');
-			this.doneBtn?.hide();
 		} else {
 			this.addNoteBtn.removeAttribute('disabled');
 			this.inputEl.removeAttribute('disabled');
 			this.updateOpenNoteButton();
 		}
 		this.inputEl.toggleClass('is-disabled', busy);
+	}
+
+	private syncComposerHeight(): void {
+		this.inputEl.style.removeProperty('height');
+		this.inputEl.style.height = `${this.inputEl.scrollHeight}px`;
 	}
 
 	private async appendUserMessage(text: string): Promise<void> {
