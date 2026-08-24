@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-08-24
+
+### Changed
+
+- In-flight chat status shows a muted spinner beside “Thinking…”, so the wait state is visibly active.
+
 ## [1.5.1] - 2026-08-22
 
 ### Changed
@@ -122,7 +128,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.1...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.2...HEAD
+[1.5.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.1...1.5.2
 [1.5.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.0...1.5.1
 [1.5.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.4.1...1.5.0
 [1.4.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.4.0...1.4.1

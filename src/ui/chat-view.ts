@@ -372,7 +372,10 @@ export class ChatView extends ItemView {
 		this.setBusy(true);
 		let statusText = 'Thinking…';
 		const startedAt = Date.now();
-		const status = this.messagesEl.createDiv({ cls: 'vault-assistant-status', text: statusText });
+		const status = this.messagesEl.createDiv({ cls: 'vault-assistant-status is-pending', text: statusText });
+		status.setAttr('role', 'status');
+		status.setAttr('aria-live', 'polite');
+		status.setAttr('aria-busy', 'true');
 		const renderStatus = (): void => {
 			if (!this.plugin.settings.debugMode) {
 				status.setText(statusText);
