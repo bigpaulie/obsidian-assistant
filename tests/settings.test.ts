@@ -14,6 +14,7 @@ describe('DEFAULT_SETTINGS', () => {
 		expect(DEFAULT_SETTINGS.privacyAcknowledged).toBe(false);
 		expect(DEFAULT_SETTINGS.debugMode).toBe(false);
 		expect(DEFAULT_SETTINGS.showReplyMeta).toBe(true);
+		expect(DEFAULT_SETTINGS.chatHistoryEnabled).toBe(false);
 	});
 
 	it('fills missing keys when merging partial saved data', () => {

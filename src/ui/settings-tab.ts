@@ -178,6 +178,26 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 							key: 'showReplyMeta',
 						},
 					},
+					{
+						name: 'Save chat history',
+						desc: 'Opt-in. Store conversation transcripts in the plugin folder and resume them from chat. Off by default.',
+						control: {
+							type: 'toggle',
+							key: 'chatHistoryEnabled',
+						},
+					},
+					{
+						name: 'Clear chat history',
+						desc: 'Delete all saved conversations from the plugin folder.',
+						render: (setting) => {
+							setting.setClass('vault-assistant-setting-action');
+							setting.addButton((button) => {
+								button.setButtonText('Clear');
+								button.setDestructive();
+								button.onClick(() => void this.clearChatHistory());
+							});
+						},
+					},
 				],
 			},
 			{
@@ -361,6 +381,15 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 			new Notice(error instanceof Error ? error.message : 'Unable to rebuild index.');
 		} finally {
 			buttonEl.removeAttribute('disabled');
+		}
+	}
+
+	private async clearChatHistory(): Promise<void> {
+		try {
+			await this.plugin.chatHistory.clear();
+			new Notice('Chat history cleared.');
+		} catch (error) {
+			new Notice(error instanceof Error ? error.message : 'Unable to clear chat history.');
 		}
 	}
 

@@ -18,6 +18,7 @@ export interface VaultAssistantSettings {
 	privacyAcknowledged: boolean;
 	debugMode: boolean;
 	showReplyMeta: boolean;
+	chatHistoryEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: VaultAssistantSettings = {
@@ -36,6 +37,7 @@ export const DEFAULT_SETTINGS: VaultAssistantSettings = {
 	privacyAcknowledged: false,
 	debugMode: false,
 	showReplyMeta: true,
+	chatHistoryEnabled: false,
 };
 
 export const PROVIDER_LABELS: Record<ProviderId, string> = {

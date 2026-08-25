@@ -55,7 +55,7 @@ Ollama must expose `/v1/chat/completions`. OpenAI gpt-5.4+ models (including gpt
 
 ## Privacy
 
-- **On this device:** API keys in the plugin `data.json`, and the search index in `search-index.json`. Keys are never logged. Optional **Debug mode** (**Settings → Vault Assistant → Advanced**) shows a Debug card in chat after each reply (endpoint, timing, tools). It can also write the same metadata to the developer console; set the log level to **Verbose**. It does not log API keys or note contents.
+- **On this device:** API keys in the plugin `data.json`, and the search index in `search-index.json`. Optional **Save chat history** (**Settings → Vault Assistant → Chat**, off by default) stores conversation transcripts in `chat-history.json` in the plugin folder so you can resume them from chat. Keys are never logged. Optional **Debug mode** (**Settings → Vault Assistant → Advanced**) shows a Debug card in chat after each reply (endpoint, timing, tools). It can also write the same metadata to the developer console; set the log level to **Verbose**. It does not log API keys or note contents.
 - **Indexing** lists markdown note paths in the vault (`getMarkdownFiles`) so search can run locally. It does not send notes anywhere. Use **Exclude folders** in settings to skip folders and everything inside them.
 - **Chat** sends your prompt, retrieved chunks, conversation history, notes you explicitly reference, and any note the assistant reads. The whole vault is not uploaded.
 - There is no telemetry. Network calls happen only when you chat, detect models, or test the connection, and only to the provider you chose (OpenAI, OpenRouter, or your Ollama URL).

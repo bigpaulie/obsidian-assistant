@@ -1,4 +1,5 @@
 import { Notice, Plugin } from 'obsidian';
+import { ChatHistoryStore } from './chat/history-store';
 import { VIEW_TYPE_CHAT } from './constants';
 import { VaultIndexer } from './rag/indexer';
 import { DEFAULT_SETTINGS, type VaultAssistantSettings } from './settings';
@@ -9,10 +10,12 @@ import { getOpenMarkdownFiles } from './vault/notes';
 export default class VaultAssistantPlugin extends Plugin {
 	settings!: VaultAssistantSettings;
 	indexer!: VaultIndexer;
+	chatHistory!: ChatHistoryStore;
 
 	async onload(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<VaultAssistantSettings>);
 		this.indexer = new VaultIndexer(this);
+		this.chatHistory = new ChatHistoryStore(this);
 
 		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this));
 
@@ -66,6 +69,7 @@ export default class VaultAssistantPlugin extends Plugin {
 
 	onunload(): void {
 		this.indexer.unload();
+		this.chatHistory.unload();
 	}
 
 	async saveSettings(): Promise<void> {

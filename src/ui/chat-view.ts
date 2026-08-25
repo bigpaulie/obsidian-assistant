@@ -1,6 +1,11 @@
 import { Component, ItemView, MarkdownRenderer, Notice, Platform, TFile, WorkspaceLeaf } from 'obsidian';
 import { runAgent } from '../agent/loop';
 import type { NoteProposal } from '../agent/tools';
+import {
+	newConversationId,
+	type StoredConversation,
+} from '../chat/history-store';
+import { fallbackTitle, generateConversationTitle } from '../chat/title';
 import { MAX_REFERENCED_NOTES, VIEW_TYPE_CHAT } from '../constants';
 import { formatDebugLines } from '../debug';
 import { formatChatError, LlmError } from '../llm/errors';
@@ -9,8 +14,11 @@ import { formatReplyMeta, type TokenUsage } from '../llm/usage';
 import type VaultAssistantPlugin from '../main';
 import { getOpenMarkdownFiles } from '../vault/notes';
 import { renderApplyCard } from './apply-card';
+import { ChatHistoryModal } from './chat-history-modal';
 import { composerKeyboardInset, MOBILE_KEYBOARD_INSET_THRESHOLD } from './keyboard-inset';
 import { NoteSuggestModal, wikilinkFor } from './note-suggest';
+
+const UNTITLED_CHAT = 'New chat';
 
 export class ChatView extends ItemView {
 	private messagesEl!: HTMLElement;
@@ -20,6 +28,8 @@ export class ChatView extends ItemView {
 	private stopBtn!: HTMLButtonElement;
 	private addNoteBtn!: HTMLButtonElement;
 	private addOpenNoteBtn!: HTMLButtonElement;
+	private titleEl!: HTMLElement;
+	private historyBtn!: HTMLButtonElement;
 	private messagesHost = new Component();
 	private history: ChatMessage[] = [];
 	private referenced = new Map<string, TFile>();
@@ -27,6 +37,10 @@ export class ChatView extends ItemView {
 	private running = false;
 	private suggestOpen = false;
 	private restInnerHeight = 0;
+	private currentConversationId: string | null = null;
+	private currentTitle = '';
+	private conversationCreatedAt: number | null = null;
+	private titleRequestId = 0;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -61,9 +75,13 @@ export class ChatView extends ItemView {
 		}
 
 		const header = root.createDiv({ cls: 'vault-assistant-header' });
-		header.createEl('h2', { text: 'Vault assistant' });
-		const newChatBtn = header.createEl('button', { text: 'New chat' });
-		this.registerDomEvent(newChatBtn, 'click', () => this.resetChat());
+		this.titleEl = header.createEl('h2', { text: this.headerTitleText() });
+		const actions = header.createDiv({ cls: 'vault-assistant-header-actions' });
+		this.historyBtn = actions.createEl('button', { text: 'History' });
+		this.historyBtn.toggle(this.historyEnabled());
+		const newChatBtn = actions.createEl('button', { text: 'New chat' });
+		this.registerDomEvent(this.historyBtn, 'click', () => void this.openHistory());
+		this.registerDomEvent(newChatBtn, 'click', () => void this.resetChat());
 
 		this.messagesEl = root.createDiv({ cls: 'vault-assistant-messages' });
 		this.showEmptyState();
@@ -122,19 +140,113 @@ export class ChatView extends ItemView {
 
 	async onClose(): Promise<void> {
 		this.stop();
+		if (this.historyEnabled() && this.history.length > 0) {
+			await this.persistCurrentConversation(true);
+		}
 		this.messagesHost.unload();
 		this.containerEl.style.removeProperty('--vault-assistant-keyboard-inset');
 		this.contentEl.removeClass('is-keyboard-open');
 	}
 
-	private resetChat(): void {
+	private historyEnabled(): boolean {
+		return this.plugin.settings.chatHistoryEnabled;
+	}
+
+	private headerTitleText(): string {
+		if (!this.historyEnabled()) {
+			return 'Vault assistant';
+		}
+		return this.currentTitle.trim() || UNTITLED_CHAT;
+	}
+
+	private syncHeaderTitle(): void {
+		if (!this.titleEl) {
+			return;
+		}
+		this.titleEl.setText(this.headerTitleText());
+		if (this.historyBtn) {
+			this.historyBtn.toggle(this.historyEnabled());
+		}
+	}
+
+	private async resetChat(): Promise<void> {
 		this.stop();
+		if (this.historyEnabled() && this.history.length > 0) {
+			await this.persistCurrentConversation(true);
+		}
+		this.titleRequestId += 1;
+		this.currentConversationId = null;
+		this.currentTitle = '';
+		this.conversationCreatedAt = null;
 		this.history = [];
 		this.referenced.clear();
 		this.renderChips();
 		this.rebuildMessagesHost();
 		this.messagesEl.empty();
 		this.showEmptyState();
+		this.syncHeaderTitle();
+	}
+
+	private async openHistory(): Promise<void> {
+		if (!this.historyEnabled() || this.running || this.suggestOpen) {
+			return;
+		}
+		const conversations = await this.plugin.chatHistory.list();
+		if (conversations.length === 0) {
+			new Notice('No saved conversations yet.');
+			return;
+		}
+		this.suggestOpen = true;
+		const modal = new ChatHistoryModal(
+			this.app,
+			conversations,
+			(conversation) => {
+				void this.loadConversation(conversation);
+			},
+			() => {
+				this.suggestOpen = false;
+			},
+		);
+		modal.open();
+	}
+
+	private async loadConversation(conversation: StoredConversation): Promise<void> {
+		this.stop();
+		if (this.historyEnabled() && this.history.length > 0 && this.currentConversationId !== conversation.id) {
+			await this.persistCurrentConversation(true);
+		}
+		this.titleRequestId += 1;
+		this.currentConversationId = conversation.id;
+		this.currentTitle = conversation.title;
+		this.conversationCreatedAt = conversation.createdAt;
+		this.history = conversation.messages.map((message) => ({
+			role: message.role,
+			content: message.content,
+		}));
+		this.referenced.clear();
+		for (const path of conversation.referencedPaths) {
+			const file = this.app.vault.getAbstractFileByPath(path);
+			if (file instanceof TFile) {
+				this.referenced.set(file.path, file);
+			}
+		}
+		this.renderChips();
+		this.rebuildMessagesHost();
+		this.messagesEl.empty();
+		if (this.history.length === 0) {
+			this.showEmptyState();
+		} else {
+			for (const message of this.history) {
+				const text = typeof message.content === 'string' ? message.content : '';
+				if (message.role === 'user') {
+					await this.appendUserMessage(text);
+				} else if (message.role === 'assistant') {
+					await this.appendAssistantMessage(text, []);
+				}
+			}
+		}
+		this.syncHeaderTitle();
+		this.scrollToBottom();
 	}
 
 	private showEmptyState(): void {
@@ -416,6 +528,9 @@ export class ChatView extends ItemView {
 					copied: 'Copied debug details.',
 				});
 			}
+			if (this.historyEnabled()) {
+				await this.afterSuccessfulTurn(result.assistantText);
+			}
 		} catch (error) {
 			status.remove();
 			try {
@@ -431,6 +546,64 @@ export class ChatView extends ItemView {
 			this.running = false;
 			this.setBusy(false);
 			this.scrollToBottom();
+		}
+	}
+
+	private async afterSuccessfulTurn(assistantText: string): Promise<void> {
+		const needsTitle = !this.currentTitle.trim();
+		if (!this.currentConversationId) {
+			this.currentConversationId = newConversationId();
+			this.conversationCreatedAt = Date.now();
+		}
+		await this.persistCurrentConversation(false);
+		if (needsTitle) {
+			this.beginTitleGeneration(assistantText);
+		}
+	}
+
+	private beginTitleGeneration(assistantText: string): void {
+		const requestId = ++this.titleRequestId;
+		const conversationId = this.currentConversationId;
+		const firstUser = this.history.find((message) => message.role === 'user');
+		const userText = typeof firstUser?.content === 'string' ? firstUser.content : '';
+		if (!conversationId || !userText.trim()) {
+			return;
+		}
+		void generateConversationTitle(this.plugin.settings, userText, assistantText).then(async (title) => {
+			if (requestId !== this.titleRequestId || this.currentConversationId !== conversationId) {
+				return;
+			}
+			this.currentTitle = title || fallbackTitle(userText);
+			this.syncHeaderTitle();
+			await this.persistCurrentConversation(false);
+		});
+	}
+
+	private async persistCurrentConversation(immediate: boolean): Promise<void> {
+		if (!this.historyEnabled() || this.history.length === 0) {
+			return;
+		}
+		if (!this.currentConversationId) {
+			this.currentConversationId = newConversationId();
+		}
+		const now = Date.now();
+		const createdAt = this.conversationCreatedAt ?? now;
+		this.conversationCreatedAt = createdAt;
+		const conversation: StoredConversation = {
+			id: this.currentConversationId,
+			title: this.currentTitle,
+			createdAt,
+			updatedAt: now,
+			messages: this.history.map((message) => ({
+				role: message.role,
+				content: message.content,
+			})),
+			referencedPaths: [...this.referenced.keys()],
+		};
+		if (immediate) {
+			await this.plugin.chatHistory.upsertNow(conversation);
+		} else {
+			await this.plugin.chatHistory.upsert(conversation);
 		}
 	}
 
@@ -520,7 +693,9 @@ export class ChatView extends ItemView {
 		this.renderThinking(bubble, meta?.thinking);
 		const body = bubble.createDiv({ cls: 'vault-assistant-msg-body markdown-rendered' });
 		await MarkdownRenderer.render(this.app, text, body, this.markdownSourcePath(), this.messagesHost);
-		this.renderReplyMeta(bubble, meta?.model, meta?.usage);
+		if (meta) {
+			this.renderReplyMeta(bubble, meta.model, meta.usage);
+		}
 		for (const proposal of proposals) {
 			renderApplyCard(this.plugin, this.messagesEl, proposal, this.messagesHost, this.markdownSourcePath());
 		}
