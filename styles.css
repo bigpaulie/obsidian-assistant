@@ -17,8 +17,19 @@
 
 .vault-assistant-header h2 {
 	margin: 0;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	font-size: var(--font-ui-medium);
 	font-weight: var(--font-medium);
+}
+
+.vault-assistant-header-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	flex-shrink: 0;
 }
 
 .vault-assistant-messages {
