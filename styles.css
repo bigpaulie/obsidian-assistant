@@ -477,24 +477,61 @@ body.is-mobile .vault-assistant-setting-action button {
 .vault-assistant-folder-tree-label {
 	display: flex;
 	align-items: center;
+	justify-content: flex-start;
 	gap: var(--size-2-2);
 	min-width: 0;
 	flex: 1;
 	margin: 0;
+	border: none;
+	background: transparent;
+	width: auto;
+	text-align: start;
 }
 
-.vault-assistant-folder-tree-label span {
+.vault-assistant-folder-tree input[type='checkbox'],
+.vault-assistant-folder-tree-checkbox {
+	flex: 0 0 auto;
+	box-sizing: border-box;
+	width: var(--checkbox-size);
+	height: var(--checkbox-size);
+	min-width: var(--checkbox-size);
+	max-width: var(--checkbox-size);
+	min-height: var(--checkbox-size);
+	margin: 0;
+}
+
+.vault-assistant-folder-tree-name {
+	flex: 1;
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	text-align: start;
 }
 
 body.is-mobile .vault-assistant-folder-tree-row {
 	min-height: 44px;
+	padding-inline-start: calc(var(--size-2-2) + (var(--vault-assistant-folder-depth, 0) * var(--size-4-2)));
+}
+
+body.is-mobile .vault-assistant-folder-tree-label {
+	min-height: 44px;
 }
 
 body.is-mobile .vault-assistant-folder-tree-twistie,
-body.is-mobile .vault-assistant-folder-tree-checkbox {
-	min-height: 44px;
+body.is-mobile .vault-assistant-folder-tree-twistie-spacer {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
 	min-width: 44px;
+	min-height: 44px;
+}
+
+body.is-mobile .vault-assistant-folder-tree-name {
+	white-space: normal;
+	overflow: visible;
+	text-overflow: unset;
+	overflow-wrap: anywhere;
 }
