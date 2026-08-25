@@ -4,12 +4,21 @@ import { LlmClient } from '../llm/client';
 import { isLocalhostUrl, normalizeServerUrl } from '../llm/providers';
 import type VaultAssistantPlugin from '../main';
 import { PROVIDER_LABELS, type ProviderId, type VaultAssistantSettings } from '../settings';
+import { collectFolderTree, existingFolderPaths, missingExcludeFolders } from '../vault/folders';
+import {
+	canonicalizeExcludeFolders,
+	parseExcludeFolders,
+	serializeExcludeFolders,
+	toggleExcludedFolder,
+} from '../vault/paths';
+import { renderExcludeFolderTree } from './exclude-folder-tree';
 
 type SettingsKey = keyof VaultAssistantSettings;
 type ApiKeyField = 'openaiApiKey' | 'openrouterApiKey' | 'ollamaApiKey';
 
 export class VaultAssistantSettingTab extends PluginSettingTab {
 	private detectedModels: string[] = [];
+	private expandedExcludeFolders = new Set<string>();
 
 	constructor(
 		app: App,
@@ -197,13 +206,8 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 					},
 					{
 						name: 'Exclude folders',
-						desc: 'One vault folder path per line. The config folder is always excluded.',
-						control: {
-							type: 'textarea',
-							key: 'excludeFolders',
-							placeholder: 'Path/to/folder',
-							rows: 4,
-						},
+						desc: 'Checked folders and everything inside them are skipped. The config folder is always excluded. Rebuild the index after changing this.',
+						render: (setting) => this.renderExcludeFolders(setting),
 					},
 					{
 						name: 'Search index',
@@ -255,6 +259,41 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 				],
 			},
 		];
+	}
+
+	private renderExcludeFolders(setting: Setting): void {
+		setting.setClass('vault-assistant-setting-folder-tree');
+		const host = setting.controlEl;
+		const paint = (): void => {
+			const selected = canonicalizeExcludeFolders(parseExcludeFolders(this.plugin.settings.excludeFolders));
+			const tree = collectFolderTree(this.app.vault.getRoot(), this.app.vault.configDir);
+			const existing = existingFolderPaths(tree);
+			renderExcludeFolderTree(host, {
+				tree,
+				selected,
+				expanded: this.expandedExcludeFolders,
+				missing: missingExcludeFolders(selected, existing),
+				onToggle: (path) => {
+					void this.onExcludeFolderToggle(path, paint);
+				},
+				onExpandToggle: (path) => {
+					if (this.expandedExcludeFolders.has(path)) {
+						this.expandedExcludeFolders.delete(path);
+					} else {
+						this.expandedExcludeFolders.add(path);
+					}
+					paint();
+				},
+			});
+		};
+		paint();
+	}
+
+	private async onExcludeFolderToggle(path: string, paint: () => void): Promise<void> {
+		const selected = parseExcludeFolders(this.plugin.settings.excludeFolders);
+		this.plugin.settings.excludeFolders = serializeExcludeFolders(toggleExcludedFolder(path, selected));
+		await this.plugin.saveSettings();
+		paint();
 	}
 
 	private renderApiKey(setting: Setting, key: ApiKeyField): void {
