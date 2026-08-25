@@ -88,5 +88,5 @@ function renderRow(parent: HTMLElement, node: FolderTreeNode, options: ExcludeFo
 	checkbox.addEventListener('change', () => {
 		options.onToggle(node.path);
 	});
-	label.createSpan({ text: node.name });
+	label.createSpan({ cls: 'vault-assistant-folder-tree-name', text: node.name });
 }
