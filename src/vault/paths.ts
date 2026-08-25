@@ -40,6 +40,32 @@ export function parseExcludeFolders(raw: string): string[] {
 	return parseFolderList(raw).map((folder) => normalizePath(folder)).filter(Boolean);
 }
 
+/** Drop paths nested under another selected folder. Sort for stable storage. */
+export function canonicalizeExcludeFolders(selected: string[]): string[] {
+	const unique = [...new Set(selected.map((folder) => normalizePath(folder)).filter(Boolean))].sort();
+	return unique.filter((path) => !unique.some((other) => other !== path && path.startsWith(`${other}/`)));
+}
+
+export function isFolderExclusionInherited(path: string, selected: string[]): boolean {
+	return selected.some((folder) => path.startsWith(`${folder}/`));
+}
+
+export function toggleExcludedFolder(path: string, selected: string[]): string[] {
+	const normalized = normalizePath(path);
+	const current = canonicalizeExcludeFolders(selected);
+	if (!normalized || isFolderExclusionInherited(normalized, current)) {
+		return current;
+	}
+	if (current.includes(normalized)) {
+		return current.filter((folder) => folder !== normalized);
+	}
+	return canonicalizeExcludeFolders([...current, normalized]);
+}
+
+export function serializeExcludeFolders(selected: string[]): string {
+	return canonicalizeExcludeFolders(selected).join('\n');
+}
+
 export function isExcludedPath(path: string, excludeFolders: string[], configDir: string): boolean {
 	const config = normalizePath(configDir);
 	if (path === config || path.startsWith(`${config}/`)) {

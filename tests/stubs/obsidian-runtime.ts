@@ -11,6 +11,7 @@ export function normalizePath(path: string): string {
 export class App {}
 export class TFile {}
 export class TAbstractFile {}
+export class TFolder extends TAbstractFile {}
 export class MarkdownView {}
 export class Notice {}
 export class Plugin {}
@@ -20,6 +21,10 @@ export class PluginSettingTab {}
 export class Setting {}
 export class FuzzySuggestModal {}
 export class WorkspaceLeaf {}
+
+export function setIcon(): void {
+	return;
+}
 
 export function requestUrl(): never {
 	throw new Error('requestUrl is not stubbed for this test slice');

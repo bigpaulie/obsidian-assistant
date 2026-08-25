@@ -1,13 +1,17 @@
 import type { App, TFile } from 'obsidian';
 import { describe, expect, it } from 'vitest';
 import {
+	canonicalizeExcludeFolders,
 	dirname,
 	ensureMarkdownPath,
 	isExcludedPath,
+	isFolderExclusionInherited,
 	parseExcludeFolders,
 	resolveMarkdownFile,
 	sanitizeVaultPath,
+	serializeExcludeFolders,
 	stem,
+	toggleExcludedFolder,
 } from '../../src/vault/paths';
 
 describe('sanitizeVaultPath', () => {
@@ -42,6 +46,49 @@ describe('ensureMarkdownPath', () => {
 describe('parseExcludeFolders', () => {
 	it('normalizes folder lines', () => {
 		expect(parseExcludeFolders('archive\\\n# skip\nTemplates')).toEqual(['archive', 'Templates']);
+	});
+});
+
+describe('canonicalizeExcludeFolders', () => {
+	it('drops paths nested under another selected folder', () => {
+		expect(canonicalizeExcludeFolders(['archive/old', 'archive', 'Templates'])).toEqual(['Templates', 'archive']);
+	});
+
+	it('keeps sibling prefixes like archive and archive-other', () => {
+		expect(canonicalizeExcludeFolders(['archive', 'archive-other'])).toEqual(['archive', 'archive-other']);
+	});
+});
+
+describe('isFolderExclusionInherited', () => {
+	it('is true only for descendants of a selected folder', () => {
+		expect(isFolderExclusionInherited('archive/old', ['archive'])).toBe(true);
+		expect(isFolderExclusionInherited('archive', ['archive'])).toBe(false);
+		expect(isFolderExclusionInherited('archive-other', ['archive'])).toBe(false);
+	});
+});
+
+describe('toggleExcludedFolder', () => {
+	it('adds a folder and drops selected descendants', () => {
+		expect(toggleExcludedFolder('archive', ['archive/old', 'Templates'])).toEqual(['Templates', 'archive']);
+	});
+
+	it('removes a directly selected folder', () => {
+		expect(toggleExcludedFolder('archive', ['archive', 'Templates'])).toEqual(['Templates']);
+	});
+
+	it('is a no-op when the folder is inherited from a parent', () => {
+		expect(toggleExcludedFolder('archive/old', ['archive'])).toEqual(['archive']);
+	});
+
+	it('does not treat sibling prefixes as inherited', () => {
+		expect(toggleExcludedFolder('archive-other', ['archive'])).toEqual(['archive', 'archive-other']);
+	});
+});
+
+describe('serializeExcludeFolders', () => {
+	it('joins canonical paths with newlines', () => {
+		expect(serializeExcludeFolders(['archive/old', 'archive'])).toBe('archive');
+		expect(serializeExcludeFolders([])).toBe('');
 	});
 });
 

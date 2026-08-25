@@ -432,3 +432,69 @@ body.is-mobile .vault-assistant-setting-action button {
 	min-height: 44px;
 	min-width: 44px;
 }
+
+.vault-assistant-folder-tree {
+	width: 100%;
+	max-height: 20rem;
+	overflow: auto;
+	box-sizing: border-box;
+	padding: var(--size-2-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+}
+
+.vault-assistant-folder-tree-heading,
+.vault-assistant-folder-tree-empty {
+	padding: var(--size-2-2) var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.vault-assistant-folder-tree-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	padding-block: var(--size-2-2);
+	padding-inline-start: calc(var(--size-2-2) + (var(--vault-assistant-folder-depth, 0) * var(--size-4-4)));
+	padding-inline-end: var(--size-2-2);
+}
+
+.vault-assistant-folder-tree-row.is-inherited {
+	color: var(--text-muted);
+}
+
+.vault-assistant-folder-tree-twistie,
+.vault-assistant-folder-tree-twistie-spacer {
+	flex-shrink: 0;
+	box-sizing: border-box;
+	width: var(--icon-size);
+	height: var(--icon-size);
+	padding: 0;
+	margin: 0;
+}
+
+.vault-assistant-folder-tree-label {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	min-width: 0;
+	flex: 1;
+	margin: 0;
+}
+
+.vault-assistant-folder-tree-label span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+body.is-mobile .vault-assistant-folder-tree-row {
+	min-height: 44px;
+}
+
+body.is-mobile .vault-assistant-folder-tree-twistie,
+body.is-mobile .vault-assistant-folder-tree-checkbox {
+	min-height: 44px;
+	min-width: 44px;
+}

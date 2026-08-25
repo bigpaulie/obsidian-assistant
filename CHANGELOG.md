@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-25
+
+### Changed
+
+- Exclude folders is a vault folder tree: checking a folder skips it and every subfolder.
+
 ## [1.5.2] - 2026-08-24
 
 ### Changed
@@ -128,7 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.2...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.6.0...HEAD
+[1.6.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.2...1.6.0
 [1.5.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.1...1.5.2
 [1.5.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.0...1.5.1
 [1.5.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.4.1...1.5.0
