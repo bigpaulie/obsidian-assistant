@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-30
+
 ### Added
 
 - Nearest `system.md` (walk up from the active note’s folder) overrides the Settings extra system prompt; chat shows which system note is active.
@@ -15,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - System note instructions are appended last with explicit priority so language/style rules are not drowned by retrieved vault context.
+
 ## [1.7.0] - 2026-08-25
 
 ### Added
@@ -152,7 +155,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.7.0...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.8.0...HEAD
+[1.8.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.7.0...1.8.0
 [1.7.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.2...1.6.0
 [1.5.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.5.1...1.5.2
