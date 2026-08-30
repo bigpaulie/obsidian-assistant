@@ -854,7 +854,7 @@ export class ChatView extends ItemView {
 	}
 
 	private syncComposerHeight(): void {
-		this.inputEl.style.height = '0px';
+		this.inputEl.style.removeProperty('height');
 		const nextHeight = this.inputEl.scrollHeight;
 		this.inputEl.style.height = `${nextHeight}px`;
 		const lineHeight = Number.parseFloat(getComputedStyle(this.inputEl).lineHeight);
