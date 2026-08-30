@@ -162,7 +162,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 					},
 					{
 						name: 'Extra system prompt',
-						desc: 'Optional instructions appended to the built-in assistant prompt.',
+						desc: 'Optional instructions appended to the built-in assistant prompt. A nearest system.md (from the active note’s folder upward) overrides this when present.',
 						control: {
 							type: 'textarea',
 							key: 'systemPrompt',

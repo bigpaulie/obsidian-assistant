@@ -32,6 +32,26 @@
 	flex-shrink: 0;
 }
 
+.vault-assistant-system-source {
+	padding: var(--size-2-2) var(--size-4-4);
+	border-bottom: 1px solid var(--background-modifier-border);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vault-assistant-system-source-link {
+	color: var(--text-muted);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.vault-assistant-system-source-link:hover {
+	color: var(--text-normal);
+}
+
 .vault-assistant-messages {
 	flex: 1;
 	overflow-y: auto;

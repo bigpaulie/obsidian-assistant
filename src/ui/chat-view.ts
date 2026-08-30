@@ -12,7 +12,8 @@ import { formatChatError, LlmError } from '../llm/errors';
 import type { ChatMessage } from '../llm/types';
 import { formatReplyMeta, type TokenUsage } from '../llm/usage';
 import type VaultAssistantPlugin from '../main';
-import { getOpenMarkdownFiles } from '../vault/notes';
+import { getActiveMarkdownPath, getOpenMarkdownFiles } from '../vault/notes';
+import { resolveSystemNotePath } from '../vault/system-note';
 import { renderApplyCard } from './apply-card';
 import { ChatHistoryModal } from './chat-history-modal';
 import { composerKeyboardInset, MOBILE_KEYBOARD_INSET_THRESHOLD } from './keyboard-inset';
@@ -30,6 +31,8 @@ export class ChatView extends ItemView {
 	private addOpenNoteBtn!: HTMLButtonElement;
 	private titleEl!: HTMLElement;
 	private historyBtn!: HTMLButtonElement;
+	private systemSourceEl!: HTMLElement;
+	private resolvedSystemNotePath: string | null = null;
 	private messagesHost = new Component();
 	private history: ChatMessage[] = [];
 	private referenced = new Map<string, TFile>();
@@ -83,6 +86,24 @@ export class ChatView extends ItemView {
 		this.registerDomEvent(this.historyBtn, 'click', () => void this.openHistory());
 		this.registerDomEvent(newChatBtn, 'click', () => void this.resetChat());
 
+		this.systemSourceEl = root.createDiv({ cls: 'vault-assistant-system-source' });
+		this.systemSourceEl.hide();
+		this.registerDomEvent(this.systemSourceEl, 'click', (event) => {
+			const target = event.target;
+			if (!(target instanceof HTMLElement) || !target.closest('a')) {
+				return;
+			}
+			event.preventDefault();
+			const path = this.resolvedSystemNotePath;
+			if (!path) {
+				return;
+			}
+			const file = this.app.vault.getFileByPath(path);
+			if (file) {
+				void this.app.workspace.getLeaf(false).openFile(file);
+			}
+		});
+
 		this.messagesEl = root.createDiv({ cls: 'vault-assistant-messages' });
 		this.showEmptyState();
 
@@ -128,13 +149,18 @@ export class ChatView extends ItemView {
 			this.syncComposerHeight();
 			this.maybeOpenWikiSuggest();
 		});
-		this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateOpenNoteButton()));
+		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
+			this.updateOpenNoteButton();
+			this.updateSystemSource();
+		}));
 		this.registerEvent(this.app.workspace.on('layout-change', () => {
 			this.updateOpenNoteButton();
+			this.updateSystemSource();
 			this.syncMobileKeyboard();
 		}));
 		this.setupMobileKeyboard();
 		this.updateOpenNoteButton();
+		this.updateSystemSource();
 		this.syncComposerHeight();
 	}
 
@@ -321,6 +347,26 @@ export class ChatView extends ItemView {
 		} else {
 			this.addOpenNoteBtn.setAttr('disabled', 'true');
 		}
+	}
+
+	private updateSystemSource(): void {
+		if (!this.systemSourceEl) {
+			return;
+		}
+		const path = resolveSystemNotePath(this.app, getActiveMarkdownPath(this.app));
+		this.resolvedSystemNotePath = path;
+		this.systemSourceEl.empty();
+		if (!path) {
+			this.systemSourceEl.hide();
+			return;
+		}
+		this.systemSourceEl.show();
+		this.systemSourceEl.createSpan({ text: 'System note: ' });
+		this.systemSourceEl.createEl('a', {
+			text: path,
+			cls: 'vault-assistant-system-source-link',
+			attr: { href: '#' },
+		});
 	}
 
 	private setupMobileKeyboard(): void {
