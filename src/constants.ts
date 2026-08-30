@@ -20,5 +20,7 @@ export const MAX_RETRIEVED_CHARS = 12_000;
 export const MAX_TOOL_RESULT_CHARS = 8_000;
 export const MAX_SEARCH_HITS = 8;
 export const MAX_REFERENCED_NOTES = 10;
+export const MAX_PHOTO_ATTACHMENTS = 4;
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 export const INDEX_PERSIST_DEBOUNCE_MS = 2_000;
 export const FILE_INDEX_DEBOUNCE_MS = 400;

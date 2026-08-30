@@ -22,6 +22,28 @@ describe('messagesToResponsesInput', () => {
 		expect(result.input).toContainEqual({ type: 'message', role: 'system', content: 'later' });
 	});
 
+	it('maps multimodal user messages to Responses input parts', () => {
+		const result = messagesToResponsesInput([
+			{
+				role: 'user',
+				content: [
+					{ type: 'text', text: 'look' },
+					{ type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
+				],
+			},
+		]);
+		expect(result.input).toEqual([
+			{
+				type: 'message',
+				role: 'user',
+				content: [
+					{ type: 'input_text', text: 'look' },
+					{ type: 'input_image', image_url: 'data:image/png;base64,abc' },
+				],
+			},
+		]);
+	});
+
 	it('echoes assistant providerItems and maps tool calls', () => {
 		const withItems: ChatMessage[] = [
 			{ role: 'assistant', content: '', providerItems: [{ type: 'reasoning', id: 'r1' }] },

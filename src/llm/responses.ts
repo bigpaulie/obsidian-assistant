@@ -1,4 +1,5 @@
 import { asString, isRecord } from '../utils';
+import { contentPartsToResponsesContent, contentToDisplayText } from './content-parts';
 import { extractReasoningSummary, extractTextParts, joinThinking } from './thinking';
 import type { ChatMessage, ChatToolCall } from './types';
 
@@ -27,15 +28,23 @@ export function messagesToResponsesInput(messages: ChatMessage[]): {
 
 	for (const message of messages) {
 		if (message.role === 'system' && instructions === undefined && input.length === 0) {
-			instructions = message.content ?? undefined;
+			instructions = contentToDisplayText(message.content) ?? undefined;
 			continue;
 		}
 		if (message.role === 'system') {
-			input.push({ type: 'message', role: 'system', content: message.content ?? '' });
+			input.push({
+				type: 'message',
+				role: 'system',
+				content: contentToDisplayText(message.content) ?? '',
+			});
 			continue;
 		}
 		if (message.role === 'user') {
-			input.push({ type: 'message', role: 'user', content: message.content ?? '' });
+			input.push({
+				type: 'message',
+				role: 'user',
+				content: contentPartsToResponsesContent(message.content),
+			});
 			continue;
 		}
 		if (message.role === 'assistant') {
@@ -55,13 +64,17 @@ export function messagesToResponsesInput(messages: ChatMessage[]): {
 				}
 				continue;
 			}
-			input.push({ type: 'message', role: 'assistant', content: message.content ?? '' });
+			input.push({
+				type: 'message',
+				role: 'assistant',
+				content: contentToDisplayText(message.content) ?? '',
+			});
 			continue;
 		}
 		input.push({
 			type: 'function_call_output',
 			call_id: message.tool_call_id ?? '',
-			output: message.content ?? '',
+			output: contentToDisplayText(message.content) ?? '',
 		});
 	}
 

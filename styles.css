@@ -54,6 +54,7 @@
 
 .vault-assistant-messages {
 	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
 	padding: var(--size-4-4);
 	display: flex;
@@ -220,6 +221,7 @@
 .vault-assistant-composer {
 	display: flex;
 	flex-direction: column;
+	flex-shrink: 0;
 	gap: var(--size-4-2);
 	padding: var(--size-4-3) var(--size-4-4);
 	padding-bottom: calc(var(--size-4-3) + env(safe-area-inset-bottom, 0px));
@@ -228,23 +230,39 @@
 
 .vault-assistant-composer-field {
 	display: flex;
-	align-items: flex-end;
-	gap: var(--size-4-2);
+	flex-direction: column;
+	gap: 0;
 	background-color: var(--background-modifier-form-field);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
-	padding: var(--size-2-2) var(--size-2-2) var(--size-2-2) var(--size-4-2);
+	padding: 0;
+	overflow: hidden;
+}
+
+.vault-assistant-composer-field.has-attachments {
+	border-color: var(--interactive-accent);
+}
+
+.vault-assistant-composer-input-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2);
+}
+
+.vault-assistant-composer-input-row.is-multiline {
+	align-items: flex-end;
 }
 
 .vault-assistant-composer-field:focus-within {
 	border-color: var(--interactive-accent);
 }
 
-.vault-assistant-composer-field textarea {
+.vault-assistant-composer-input-row textarea {
 	flex: 1;
 	min-width: 0;
 	resize: none;
-	min-height: 2.5em;
+	min-height: 0;
 	max-height: 40vh;
 	overflow-y: auto;
 	background-color: transparent;
@@ -252,54 +270,172 @@
 	border: none;
 	box-shadow: none;
 	outline: none;
-	padding: var(--size-2-2) 0;
+	padding: 0;
+	margin: 0;
+	line-height: var(--line-height-normal);
 }
 
-.vault-assistant-composer-field textarea.is-disabled {
+.vault-assistant-composer-input-row textarea.is-disabled {
 	opacity: 0.7;
 }
 
-.vault-assistant-composer-field button {
+.vault-assistant-composer-input-row button {
 	flex-shrink: 0;
 	margin: 0;
-}
-
-.vault-assistant-composer-actions {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	flex-wrap: wrap;
-	gap: var(--size-4-2);
-}
-
-.vault-assistant-composer-add {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-4-2);
-}
-
-.vault-assistant-chips {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-4-2);
-}
-
-.vault-assistant-chip {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--size-2-2);
-	padding: var(--size-2-2) var(--size-4-2);
-	border-radius: var(--radius-s);
-	background-color: var(--background-secondary);
-	border: 1px solid var(--background-modifier-border);
-	color: var(--text-normal);
-	font-size: var(--font-ui-small);
+	justify-content: center;
 }
 
-.vault-assistant-chip-remove {
-	padding: 0 var(--size-2-2);
-	min-height: auto;
+.vault-assistant-composer-input-row .vault-assistant-attach-btn {
+	position: relative;
+	width: var(--input-height);
+	height: var(--input-height);
+	padding: 0;
+}
+
+.vault-assistant-composer-input-row .vault-assistant-attach-btn.has-attachments {
+	color: var(--text-on-accent);
+	background-color: var(--interactive-accent);
+}
+
+.vault-assistant-composer-input-row button.mod-cta {
+	min-height: var(--input-height);
+	padding-top: 0;
+	padding-bottom: 0;
+}
+
+.vault-assistant-attach-badge {
+	position: absolute;
+	top: -4px;
+	right: -4px;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border-radius: 999px;
+	background-color: var(--background-modifier-error);
+	color: var(--text-on-accent);
+	font-size: 10px;
+	font-weight: var(--font-bold);
+	line-height: 16px;
+	text-align: center;
+	pointer-events: none;
+}
+
+.vault-assistant-file-input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+}
+
+.vault-assistant-composer-context {
+	padding: var(--size-2-2) var(--size-4-2);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.vault-assistant-composer-context.is-empty {
+	display: none;
+}
+
+.vault-assistant-context-strip {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	max-height: 140px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.vault-assistant-context-tile {
+	position: relative;
+	flex-shrink: 0;
+	width: 64px;
+	height: 64px;
+	border-radius: var(--radius-s);
+	border: 1px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	overflow: hidden;
+}
+
+.vault-assistant-context-tile.is-note {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-2-1);
+	padding: var(--size-2-1);
+	box-sizing: border-box;
+}
+
+.vault-assistant-context-tile-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.vault-assistant-context-tile-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.vault-assistant-context-tile-label {
+	width: 100%;
+	text-align: center;
+	color: var(--text-normal);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.2;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	word-break: break-word;
+}
+
+.vault-assistant-context-tile.is-photo {
+	padding: 0;
+}
+
+.vault-assistant-context-tile-image {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.vault-assistant-context-tile-remove {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	z-index: 1;
+	min-height: auto;
+	min-width: auto;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border-radius: 50%;
+	font-size: var(--font-ui-small);
+	line-height: 1;
+}
+
+.vault-assistant-msg-photos {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	margin-top: var(--size-2-2);
+}
+
+.vault-assistant-msg-photo {
+	max-width: min(100%, 240px);
+	max-height: 240px;
+	object-fit: contain;
+	border-radius: var(--radius-s);
+	border: 1px solid var(--background-modifier-border);
 }
 
 body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] {
@@ -345,34 +481,34 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 	padding-bottom: var(--size-4-3);
 }
 
-.vault-assistant-root.is-mobile .vault-assistant-composer-field textarea {
-	min-height: 2.5em;
+.vault-assistant-root.is-mobile .vault-assistant-composer-input-row {
+	padding: var(--size-4-2) var(--size-4-3);
+}
+
+.vault-assistant-root.is-mobile .vault-assistant-composer-input-row textarea {
 	max-height: 30vh;
 	font-size: 16px;
+	line-height: 1.5;
 }
 
-.vault-assistant-root.is-mobile .vault-assistant-composer-actions {
-	flex-wrap: nowrap;
+.vault-assistant-root.is-mobile .vault-assistant-composer-context {
+	padding: var(--size-2-2) var(--size-4-3);
 }
 
-.vault-assistant-root.is-mobile.is-keyboard-open .vault-assistant-composer-add {
-	display: none;
+.vault-assistant-root.is-mobile .vault-assistant-context-tile {
+	width: 56px;
+	height: 56px;
 }
 
-.vault-assistant-root.is-mobile .vault-assistant-composer-add {
-	flex: 1;
-	min-width: 0;
-}
-
-.vault-assistant-root.is-mobile .vault-assistant-composer-add button {
-	flex: 1;
+.vault-assistant-root.is-mobile .vault-assistant-context-tile-icon svg {
+	width: 14px;
+	height: 14px;
 }
 
 .vault-assistant-root.is-mobile .vault-assistant-header button,
-.vault-assistant-root.is-mobile .vault-assistant-composer-add button,
-.vault-assistant-root.is-mobile .vault-assistant-composer-field button,
+.vault-assistant-root.is-mobile .vault-assistant-composer-input-row button,
+.vault-assistant-root.is-mobile .vault-assistant-context-tile-remove,
 .vault-assistant-root.is-mobile .vault-assistant-proposal-actions button,
-.vault-assistant-root.is-mobile .vault-assistant-chip-remove,
 .vault-assistant-root.is-mobile .vault-assistant-status button {
 	min-height: 44px;
 	min-width: 44px;
