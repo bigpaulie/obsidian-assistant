@@ -7,9 +7,24 @@ export interface ChatToolCall {
 	};
 }
 
+export interface TextContentPart {
+	type: 'text';
+	text: string;
+}
+
+export interface ImageContentPart {
+	type: 'image_url';
+	image_url: {
+		url: string;
+		detail?: 'auto' | 'low' | 'high';
+	};
+}
+
+export type ContentPart = TextContentPart | ImageContentPart;
+
 export interface ChatMessage {
 	role: 'system' | 'user' | 'assistant' | 'tool';
-	content: string | null;
+	content: string | ContentPart[] | null;
 	tool_calls?: ChatToolCall[];
 	tool_call_id?: string;
 	/** Responses API items to echo on the next turn (reasoning + function_call). */

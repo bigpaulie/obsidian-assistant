@@ -1,4 +1,4 @@
-import { Component, ItemView, MarkdownRenderer, Notice, Platform, TFile, WorkspaceLeaf } from 'obsidian';
+import { Component, ItemView, MarkdownRenderer, Menu, Notice, Platform, setIcon, TFile, WorkspaceLeaf } from 'obsidian';
 import { runAgent } from '../agent/loop';
 import type { NoteProposal } from '../agent/tools';
 import {
@@ -6,14 +6,16 @@ import {
 	type StoredConversation,
 } from '../chat/history-store';
 import { fallbackTitle, generateConversationTitle } from '../chat/title';
-import { MAX_REFERENCED_NOTES, VIEW_TYPE_CHAT } from '../constants';
+import { MAX_PHOTO_ATTACHMENTS, MAX_PHOTO_BYTES, MAX_REFERENCED_NOTES, VIEW_TYPE_CHAT } from '../constants';
 import { formatDebugLines } from '../debug';
+import { contentToDisplayText } from '../llm/content-parts';
 import { formatChatError, LlmError } from '../llm/errors';
 import type { ChatMessage } from '../llm/types';
 import { formatReplyMeta, type TokenUsage } from '../llm/usage';
 import type VaultAssistantPlugin from '../main';
 import { getActiveMarkdownPath, getOpenMarkdownFiles } from '../vault/notes';
 import { resolveSystemNotePath } from '../vault/system-note';
+import { readImageFile, type PendingPhoto } from './attachments';
 import { renderApplyCard } from './apply-card';
 import { ChatHistoryModal } from './chat-history-modal';
 import { composerKeyboardInset, MOBILE_KEYBOARD_INSET_THRESHOLD } from './keyboard-inset';
@@ -22,13 +24,21 @@ import { NoteSuggestModal, wikilinkFor } from './note-suggest';
 const UNTITLED_CHAT = 'New chat';
 
 export class ChatView extends ItemView {
+	private readonly onPhotoInputChange = (): void => {
+		void this.handlePhotoSelection();
+	};
+
 	private messagesEl!: HTMLElement;
-	private chipsEl!: HTMLElement;
+	private composerContextEl!: HTMLElement;
+	private contextStripEl!: HTMLElement;
+	private composerFieldEl!: HTMLElement;
+	private composerInputRowEl!: HTMLElement;
+	private attachBadgeEl!: HTMLElement;
 	private inputEl!: HTMLTextAreaElement;
+	private attachBtn!: HTMLButtonElement;
+	private fileInput!: HTMLInputElement;
 	private sendBtn!: HTMLButtonElement;
 	private stopBtn!: HTMLButtonElement;
-	private addNoteBtn!: HTMLButtonElement;
-	private addOpenNoteBtn!: HTMLButtonElement;
 	private titleEl!: HTMLElement;
 	private historyBtn!: HTMLButtonElement;
 	private systemSourceEl!: HTMLElement;
@@ -36,6 +46,7 @@ export class ChatView extends ItemView {
 	private messagesHost = new Component();
 	private history: ChatMessage[] = [];
 	private referenced = new Map<string, TFile>();
+	private pendingPhotos: PendingPhoto[] = [];
 	private cancelled = false;
 	private running = false;
 	private suggestOpen = false;
@@ -108,10 +119,25 @@ export class ChatView extends ItemView {
 		this.showEmptyState();
 
 		const composer = root.createDiv({ cls: 'vault-assistant-composer' });
-		this.chipsEl = composer.createDiv({ cls: 'vault-assistant-chips' });
-		this.chipsEl.hide();
-		const field = composer.createDiv({ cls: 'vault-assistant-composer-field' });
-		this.inputEl = field.createEl('textarea', {
+		this.fileInput = composer.createEl('input', {
+			type: 'file',
+			cls: 'vault-assistant-file-input',
+			attr: {
+				accept: 'image/*,.jpg,.jpeg,.png,.webp,.gif',
+				multiple: 'true',
+				...(Platform.isMobile ? { capture: 'environment' } : {}),
+			},
+		});
+		this.composerFieldEl = composer.createDiv({ cls: 'vault-assistant-composer-field' });
+		this.composerContextEl = this.composerFieldEl.createDiv({ cls: 'vault-assistant-composer-context is-empty' });
+		this.contextStripEl = this.composerContextEl.createDiv({ cls: 'vault-assistant-context-strip' });
+		this.composerInputRowEl = this.composerFieldEl.createDiv({ cls: 'vault-assistant-composer-input-row' });
+		this.attachBtn = this.composerInputRowEl.createEl('button', { cls: 'vault-assistant-attach-btn' });
+		setIcon(this.attachBtn, 'plus');
+		this.attachBtn.setAttr('aria-label', 'Attach');
+		this.attachBadgeEl = this.attachBtn.createSpan({ cls: 'vault-assistant-attach-badge' });
+		this.attachBadgeEl.hide();
+		this.inputEl = this.composerInputRowEl.createEl('textarea', {
 			attr: {
 				rows: '1',
 				placeholder: Platform.isMobile
@@ -120,18 +146,16 @@ export class ChatView extends ItemView {
 				...(Platform.isMobile ? { enterkeyhint: 'enter' } : {}),
 			},
 		});
-		this.stopBtn = field.createEl('button', { text: 'Stop' });
+		this.stopBtn = this.composerInputRowEl.createEl('button', { text: 'Stop' });
 		this.stopBtn.setAttr('aria-label', 'Stop');
 		this.stopBtn.hide();
-		this.sendBtn = field.createEl('button', { cls: 'mod-cta', text: 'Send' });
+		this.sendBtn = this.composerInputRowEl.createEl('button', { cls: 'mod-cta', text: 'Send' });
 		this.sendBtn.setAttr('aria-label', 'Send');
-		const buttons = composer.createDiv({ cls: 'vault-assistant-composer-actions' });
-		const addGroup = buttons.createDiv({ cls: 'vault-assistant-composer-add' });
-		this.addNoteBtn = addGroup.createEl('button', { text: 'Add note' });
-		this.addOpenNoteBtn = addGroup.createEl('button', { text: 'Add open note' });
 
-		this.registerDomEvent(this.addNoteBtn, 'click', () => this.openNotePicker());
-		this.registerDomEvent(this.addOpenNoteBtn, 'click', () => this.addOpenNote());
+		this.registerDomEvent(this.attachBtn, 'pointerdown', (event) => event.preventDefault());
+		this.registerDomEvent(this.attachBtn, 'click', (event) => this.openAttachMenu(event));
+		this.fileInput.addEventListener('change', this.onPhotoInputChange);
+		this.register(() => this.fileInput.removeEventListener('change', this.onPhotoInputChange));
 		this.registerDomEvent(this.sendBtn, 'pointerdown', (event) => event.preventDefault());
 		this.registerDomEvent(this.stopBtn, 'pointerdown', (event) => event.preventDefault());
 		this.registerDomEvent(this.sendBtn, 'click', () => void this.send());
@@ -150,18 +174,16 @@ export class ChatView extends ItemView {
 			this.maybeOpenWikiSuggest();
 		});
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
-			this.updateOpenNoteButton();
 			this.updateSystemSource();
 		}));
 		this.registerEvent(this.app.workspace.on('layout-change', () => {
-			this.updateOpenNoteButton();
 			this.updateSystemSource();
 			this.syncMobileKeyboard();
 		}));
 		this.setupMobileKeyboard();
-		this.updateOpenNoteButton();
 		this.updateSystemSource();
 		this.syncComposerHeight();
+		this.renderComposerContext();
 	}
 
 	async onClose(): Promise<void> {
@@ -206,7 +228,8 @@ export class ChatView extends ItemView {
 		this.conversationCreatedAt = null;
 		this.history = [];
 		this.referenced.clear();
-		this.renderChips();
+		this.pendingPhotos = [];
+		this.renderComposerContext();
 		this.rebuildMessagesHost();
 		this.messagesEl.empty();
 		this.showEmptyState();
@@ -256,14 +279,14 @@ export class ChatView extends ItemView {
 				this.referenced.set(file.path, file);
 			}
 		}
-		this.renderChips();
+		this.renderComposerContext();
 		this.rebuildMessagesHost();
 		this.messagesEl.empty();
 		if (this.history.length === 0) {
 			this.showEmptyState();
 		} else {
 			for (const message of this.history) {
-				const text = typeof message.content === 'string' ? message.content : '';
+				const text = contentToDisplayText(message.content) ?? '';
 				if (message.role === 'user') {
 					await this.appendUserMessage(text);
 				} else if (message.role === 'assistant') {
@@ -278,7 +301,7 @@ export class ChatView extends ItemView {
 	private showEmptyState(): void {
 		this.messagesEl.createDiv({
 			cls: 'vault-assistant-empty',
-			text: 'Ask about your notes, or request a new note. Use add note or add open note to reference specific notes. Proposed writes appear here until you apply them.',
+			text: 'Ask about your notes, or request a new note. Use + to reference notes or attach a photo. Proposed writes appear here until you apply them.',
 		});
 	}
 
@@ -313,7 +336,6 @@ export class ChatView extends ItemView {
 		const files = getOpenMarkdownFiles(this.app);
 		if (files.length === 0) {
 			new Notice('Open a note tab first.');
-			this.updateOpenNoteButton();
 			return;
 		}
 		const only = files[0];
@@ -337,15 +359,147 @@ export class ChatView extends ItemView {
 		modal.open();
 	}
 
-	private updateOpenNoteButton(): void {
-		if (!this.addOpenNoteBtn) {
+	private openNotesAvailable(): boolean {
+		return getOpenMarkdownFiles(this.app).length > 0 && !this.running;
+	}
+
+	private openAttachMenu(event: MouseEvent): void {
+		if (this.running) {
 			return;
 		}
-		const available = getOpenMarkdownFiles(this.app).length > 0 && !this.running;
-		if (available) {
-			this.addOpenNoteBtn.removeAttribute('disabled');
+		const menu = new Menu();
+		menu.addItem((item) => {
+			item.setTitle('Add note')
+				.setIcon('file-plus')
+				.onClick(() => this.openNotePicker());
+		});
+		menu.addItem((item) => {
+			item.setTitle('Add open note')
+				.setIcon('files')
+				.setDisabled(!this.openNotesAvailable())
+				.onClick(() => this.addOpenNote());
+		});
+		menu.addItem((item) => {
+			item.setTitle('Attach photo')
+				.setIcon('image')
+				.onClick(() => {
+					window.requestAnimationFrame(() => {
+						this.fileInput.click();
+					});
+				});
+		});
+		menu.showAtMouseEvent(event);
+	}
+
+	private async handlePhotoSelection(): Promise<void> {
+		const files = this.fileInput.files;
+		if (!files || files.length === 0) {
+			return;
+		}
+		const remaining = MAX_PHOTO_ATTACHMENTS - this.pendingPhotos.length;
+		if (remaining <= 0) {
+			new Notice(`You can attach up to ${MAX_PHOTO_ATTACHMENTS} photos.`);
+			this.fileInput.value = '';
+			return;
+		}
+		const selected = Array.from(files).slice(0, remaining);
+		let added = 0;
+		for (const file of selected) {
+			try {
+				const photo = await readImageFile(file, MAX_PHOTO_BYTES);
+				this.pendingPhotos.push(photo);
+				added += 1;
+			} catch (error) {
+				new Notice(error instanceof Error ? error.message : String(error));
+			}
+		}
+		this.fileInput.value = '';
+		if (files.length > remaining) {
+			new Notice(`Only ${remaining} more photo(s) can be attached.`);
+		}
+		if (added > 0) {
+			this.renderComposerContext();
+			this.composerFieldEl.scrollIntoView({ block: 'nearest' });
+		}
+	}
+
+	private renderComposerContext(): void {
+		this.contextStripEl.empty();
+		this.syncAttachmentUi();
+
+		const noteCount = this.referenced.size;
+		const photoCount = this.pendingPhotos.length;
+		if (noteCount === 0 && photoCount === 0) {
+			return;
+		}
+
+		this.contextStripEl.setAttr('aria-label', this.contextLabel(noteCount, photoCount));
+
+		for (const file of this.referenced.values()) {
+			const tile = this.contextStripEl.createDiv({ cls: 'vault-assistant-context-tile is-note' });
+			tile.setAttr('title', file.path);
+			const icon = tile.createDiv({ cls: 'vault-assistant-context-tile-icon' });
+			setIcon(icon, 'file-text');
+			tile.createDiv({ cls: 'vault-assistant-context-tile-label', text: file.basename });
+			this.addContextTileRemove(tile, `Remove ${file.basename}`, () => {
+				this.referenced.delete(file.path);
+				this.renderComposerContext();
+			});
+		}
+
+		for (const photo of this.pendingPhotos) {
+			const tile = this.contextStripEl.createDiv({ cls: 'vault-assistant-context-tile is-photo' });
+			tile.setAttr('title', photo.name);
+			const img = tile.createEl('img', { cls: 'vault-assistant-context-tile-image' });
+			img.src = photo.dataUrl;
+			img.alt = photo.name;
+			this.addContextTileRemove(tile, `Remove ${photo.name}`, () => {
+				this.pendingPhotos = this.pendingPhotos.filter((entry) => entry.id !== photo.id);
+				this.renderComposerContext();
+			});
+		}
+	}
+
+	private addContextTileRemove(tile: HTMLElement, ariaLabel: string, onRemove: () => void): void {
+		const remove = tile.createEl('button', {
+			cls: 'vault-assistant-context-tile-remove',
+			text: '×',
+		});
+		remove.setAttr('aria-label', ariaLabel);
+		this.registerDomEvent(remove, 'click', (event) => {
+			event.stopPropagation();
+			onRemove();
+		});
+	}
+
+	private contextLabel(noteCount: number, photoCount: number): string {
+		const parts: string[] = [];
+		if (noteCount > 0) {
+			parts.push(noteCount === 1 ? '1 note' : `${noteCount} notes`);
+		}
+		if (photoCount > 0) {
+			parts.push(photoCount === 1 ? '1 photo' : `${photoCount} photos`);
+		}
+		return parts.join(', ');
+	}
+
+	private syncAttachmentUi(): void {
+		const noteCount = this.referenced.size;
+		const photoCount = this.pendingPhotos.length;
+		const hasContext = noteCount > 0 || photoCount > 0;
+		const totalCount = noteCount + photoCount;
+
+		this.composerContextEl.toggleClass('is-empty', !hasContext);
+		this.composerFieldEl.toggleClass('has-attachments', hasContext);
+		this.attachBtn.toggleClass('has-attachments', hasContext);
+
+		if (hasContext && totalCount > 0) {
+			this.attachBadgeEl.setText(String(totalCount));
+			this.attachBadgeEl.show();
+			this.attachBtn.setAttr('aria-label', `Attach (${this.contextLabel(noteCount, photoCount)})`);
 		} else {
-			this.addOpenNoteBtn.setAttr('disabled', 'true');
+			this.attachBadgeEl.hide();
+			this.attachBtn.setAttr('aria-label', 'Attach');
 		}
 	}
 
@@ -473,29 +627,7 @@ export class ChatView extends ItemView {
 			return;
 		}
 		this.referenced.set(file.path, file);
-		this.renderChips();
-	}
-
-	private renderChips(): void {
-		this.chipsEl.empty();
-		if (this.referenced.size === 0) {
-			this.chipsEl.hide();
-			return;
-		}
-		this.chipsEl.show();
-		for (const file of this.referenced.values()) {
-			const chip = this.chipsEl.createDiv({ cls: 'vault-assistant-chip' });
-			chip.createSpan({ text: `[[${file.basename}]]` });
-			const remove = chip.createEl('button', {
-				cls: 'vault-assistant-chip-remove',
-				text: '×',
-			});
-			remove.setAttr('aria-label', 'Remove note');
-			remove.addEventListener('click', () => {
-				this.referenced.delete(file.path);
-				this.renderChips();
-			});
-		}
+		this.renderComposerContext();
 	}
 
 	private async send(): Promise<void> {
@@ -503,7 +635,8 @@ export class ChatView extends ItemView {
 			return;
 		}
 		const text = this.inputEl.value.trim();
-		if (!text) {
+		const photos = [...this.pendingPhotos];
+		if (!text && photos.length === 0) {
 			return;
 		}
 		if (!this.plugin.settings.privacyAcknowledged) {
@@ -516,6 +649,8 @@ export class ChatView extends ItemView {
 		}
 
 		this.inputEl.value = '';
+		this.pendingPhotos = [];
+		this.renderComposerContext();
 		this.syncComposerHeight();
 		if (Platform.isMobile) {
 			this.inputEl.blur();
@@ -523,7 +658,7 @@ export class ChatView extends ItemView {
 		if (this.messagesEl.querySelector('.vault-assistant-empty')) {
 			this.messagesEl.empty();
 		}
-		await this.appendUserMessage(text);
+		await this.appendUserMessage(text, photos);
 
 		this.running = true;
 		this.cancelled = false;
@@ -550,6 +685,7 @@ export class ChatView extends ItemView {
 			const result = await runAgent(this.plugin, {
 				history: this.history,
 				userMessage: text,
+				attachments: photos.map((photo) => ({ dataUrl: photo.dataUrl })),
 				referencedPaths: [...this.referenced.keys()],
 				cancelled: () => this.cancelled,
 				onStatus: (next) => {
@@ -611,7 +747,7 @@ export class ChatView extends ItemView {
 		const requestId = ++this.titleRequestId;
 		const conversationId = this.currentConversationId;
 		const firstUser = this.history.find((message) => message.role === 'user');
-		const userText = typeof firstUser?.content === 'string' ? firstUser.content : '';
+		const userText = contentToDisplayText(firstUser?.content) ?? '';
 		if (!conversationId || !userText.trim()) {
 			return;
 		}
@@ -642,7 +778,7 @@ export class ChatView extends ItemView {
 			updatedAt: now,
 			messages: this.history.map((message) => ({
 				role: message.role,
-				content: message.content,
+				content: contentToDisplayText(message.content),
 			})),
 			referencedPaths: [...this.referenced.keys()],
 		};
@@ -706,26 +842,42 @@ export class ChatView extends ItemView {
 		this.sendBtn.toggle(!busy);
 		this.stopBtn.toggle(busy);
 		if (busy) {
-			this.addNoteBtn.setAttr('disabled', 'true');
-			this.addOpenNoteBtn.setAttr('disabled', 'true');
+			this.attachBtn.setAttr('disabled', 'true');
+			this.fileInput.setAttr('disabled', 'true');
 			this.inputEl.setAttr('disabled', 'true');
 		} else {
-			this.addNoteBtn.removeAttribute('disabled');
+			this.attachBtn.removeAttribute('disabled');
+			this.fileInput.removeAttribute('disabled');
 			this.inputEl.removeAttribute('disabled');
-			this.updateOpenNoteButton();
 		}
 		this.inputEl.toggleClass('is-disabled', busy);
 	}
 
 	private syncComposerHeight(): void {
 		this.inputEl.style.removeProperty('height');
-		this.inputEl.style.height = `${this.inputEl.scrollHeight}px`;
+		const nextHeight = this.inputEl.scrollHeight;
+		this.inputEl.style.height = `${nextHeight}px`;
+		const lineHeight = Number.parseFloat(getComputedStyle(this.inputEl).lineHeight);
+		const isMultiline =
+			Number.isFinite(lineHeight) && lineHeight > 0 && nextHeight > lineHeight * 1.5;
+		this.composerInputRowEl.toggleClass('is-multiline', isMultiline);
 	}
 
-	private async appendUserMessage(text: string): Promise<void> {
+	private async appendUserMessage(text: string, photos: PendingPhoto[] = []): Promise<void> {
 		const bubble = this.messagesEl.createDiv({ cls: 'vault-assistant-msg is-user' });
 		bubble.createDiv({ cls: 'vault-assistant-msg-label', text: 'You' });
-		bubble.createDiv({ cls: 'vault-assistant-msg-body', text });
+		const body = bubble.createDiv({ cls: 'vault-assistant-msg-body' });
+		if (text) {
+			body.createDiv({ text });
+		}
+		if (photos.length > 0) {
+			const row = body.createDiv({ cls: 'vault-assistant-msg-photos' });
+			for (const photo of photos) {
+				const img = row.createEl('img', { cls: 'vault-assistant-msg-photo' });
+				img.src = photo.dataUrl;
+				img.alt = photo.name;
+			}
+		}
 		this.scrollToBottom();
 	}
 

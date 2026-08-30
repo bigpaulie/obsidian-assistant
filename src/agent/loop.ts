@@ -8,6 +8,7 @@ import {
 	isLikelyToolsUnsupported,
 	type ChatResult,
 } from '../llm/client';
+import { buildUserContent, contentToDisplayText } from '../llm/content-parts';
 import type { ChatMessage, ChatToolCall } from '../llm/types';
 import { sumUsage, type TokenUsage } from '../llm/usage';
 import type VaultAssistantPlugin from '../main';
@@ -22,6 +23,7 @@ export interface AgentRunOptions {
 	history: ChatMessage[];
 	userMessage: string;
 	referencedPaths?: string[];
+	attachments?: Array<{ dataUrl: string }>;
 	cancelled: () => boolean;
 	onStatus?: (text: string) => void;
 }
@@ -84,7 +86,7 @@ export async function runAgent(
 	const messages: ChatMessage[] = [
 		{ role: 'system', content: system },
 		...options.history,
-		{ role: 'user', content: options.userMessage },
+		{ role: 'user', content: buildUserContent(options.userMessage, options.attachments ?? []) },
 	];
 
 	const tools = getToolDefinitions(plugin.settings.ragEnabled);
@@ -143,14 +145,14 @@ async function runWithTools(
 		const toolCalls = message.tool_calls?.filter((call) => call.function?.name);
 		if (!toolCalls || toolCalls.length === 0) {
 			trace.thinking = result.thinking;
-			const text = message.content?.trim() || EMPTY_MODEL_REPLY;
+			const text = (contentToDisplayText(message.content) ?? '').trim() || EMPTY_MODEL_REPLY;
 			messages.push({ role: 'assistant', content: text });
 			return finished(text, proposals, messages, trace);
 		}
 
 		messages.push({
 			role: 'assistant',
-			content: message.content ?? '',
+			content: typeof message.content === 'string' ? message.content : (contentToDisplayText(message.content) ?? ''),
 			tool_calls: toolCalls,
 			providerItems: message.providerItems,
 		});
@@ -180,7 +182,7 @@ async function runWithTools(
 	rememberTurn(trace, final);
 	trace.thinking = final.thinking;
 	trace.finishReason = final.finishReason;
-	const text = final.message.content?.trim() || 'Reached the tool-call limit.';
+	const text = (contentToDisplayText(final.message.content) ?? '').trim() || 'Reached the tool-call limit.';
 	messages.push({ role: 'assistant', content: text });
 	return finished(text, proposals, messages, trace);
 }
@@ -200,7 +202,7 @@ async function runWithoutTools(
 	rememberTurn(trace, result);
 	trace.thinking = result.thinking;
 	trace.rounds = Math.max(trace.rounds, 1);
-	const text = result.message.content?.trim() || EMPTY_MODEL_REPLY;
+	const text = (contentToDisplayText(result.message.content) ?? '').trim() || EMPTY_MODEL_REPLY;
 	messages.push({ role: 'assistant', content: text });
 	return finished(text, [], messages, trace);
 }

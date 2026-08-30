@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Nearest `system.md` (walk up from the active note’s folder) overrides the Settings extra system prompt; chat shows which system note is active.
+- Composer **+** menu: add note, add open note, and attach photos (vision-capable models). Notes and photos appear as compact uniform tiles above the input. Photos are sent with the message but are not saved in chat history.
 
 ### Fixed
 
