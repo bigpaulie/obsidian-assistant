@@ -14,15 +14,13 @@ export const BUILTIN_SYSTEM_PROMPT = [
 
 export function buildSystemPrompt(options: {
 	userPrompt: string;
+	/** When set, userPrompt came from this vault system note and must take priority. */
+	systemNotePath?: string | null;
 	activeNotePath: string | null;
 	ragHits: SearchHit[];
 	referencedNotes: ReferencedNote[];
 }): string {
 	const parts = [BUILTIN_SYSTEM_PROMPT];
-	const extra = options.userPrompt.trim();
-	if (extra) {
-		parts.push(extra);
-	}
 	if (options.activeNotePath) {
 		parts.push(`The user is currently viewing [[${options.activeNotePath}]].`);
 	}
@@ -35,6 +33,21 @@ export function buildSystemPrompt(options: {
 	const rag = formatHitsForPrompt(options.ragHits);
 	if (rag) {
 		parts.push(`Retrieved vault context:\n${rag}`);
+	}
+	// Extra instructions last so they win over long vault context (language, tone, style).
+	const extra = options.userPrompt.trim();
+	if (extra) {
+		if (options.systemNotePath) {
+			parts.push(
+				[
+					`Follow the vault system note [[${options.systemNotePath}]] with highest priority.`,
+					'These instructions override the settings extra prompt and take precedence for language, tone, and style over retrieved or referenced note content.',
+					extra,
+				].join('\n'),
+			);
+		} else {
+			parts.push(extra);
+		}
 	}
 	return parts.join('\n\n');
 }

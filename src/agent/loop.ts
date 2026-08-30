@@ -14,6 +14,7 @@ import type VaultAssistantPlugin from '../main';
 import { retrieveContext } from '../rag/retriever';
 import { getActiveMarkdownPath } from '../vault/notes';
 import { collectReferencedFiles, loadReferencedNotes } from '../vault/references';
+import { loadSystemNoteExtra } from '../vault/system-note';
 import { buildSystemPrompt } from './prompt';
 import { executeTool, getToolDefinitions, type NoteProposal } from './tools';
 
@@ -33,6 +34,7 @@ export interface AgentRunResult {
 	debug: DebugPayload;
 	usage?: TokenUsage;
 	model: string;
+	systemNotePath: string | null;
 }
 
 interface AgentTrace {
@@ -45,6 +47,7 @@ interface AgentTrace {
 	thinking?: string;
 	usage?: TokenUsage;
 	model: string;
+	systemNotePath: string | null;
 }
 
 /**
@@ -57,6 +60,7 @@ export async function runAgent(
 ): Promise<AgentRunResult> {
 	const client = new LlmClient(plugin.settings);
 	const activeNotePath = getActiveMarkdownPath(plugin.app);
+	const systemNote = await loadSystemNoteExtra(plugin.app, activeNotePath);
 	const referencedFiles = collectReferencedFiles(
 		plugin.app,
 		options.referencedPaths ?? [],
@@ -70,7 +74,8 @@ export async function runAgent(
 			? retrieveContext(plugin.indexer, options.userMessage, plugin.settings.maxChunks)
 			: [];
 	const system = buildSystemPrompt({
-		userPrompt: plugin.settings.systemPrompt,
+		userPrompt: systemNote?.content ?? plugin.settings.systemPrompt,
+		systemNotePath: systemNote?.path ?? null,
 		activeNotePath,
 		ragHits,
 		referencedNotes,
@@ -91,6 +96,7 @@ export async function runAgent(
 		tools: [],
 		fallback: false,
 		model: plugin.settings.model.trim(),
+		systemNotePath: systemNote?.path ?? null,
 	};
 
 	try {
@@ -259,6 +265,7 @@ function finished(
 		messages,
 		usage: trace.usage,
 		model: trace.model,
+		systemNotePath: trace.systemNotePath,
 		debug: {
 			durationMs: Date.now() - trace.startedAt,
 			rounds: trace.rounds,
@@ -269,6 +276,7 @@ function finished(
 			promptTokens: trace.usage?.promptTokens,
 			completionTokens: trace.usage?.completionTokens,
 			totalTokens: trace.usage?.totalTokens,
+			systemNotePath: trace.systemNotePath ?? undefined,
 		},
 	};
 }

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Nearest `system.md` (walk up from the active note’s folder) overrides the Settings extra system prompt; chat shows which system note is active.
+
+### Fixed
+
+- System note instructions are appended last with explicit priority so language/style rules are not drowned by retrieved vault context.
 ## [1.7.0] - 2026-08-25
 
 ### Added

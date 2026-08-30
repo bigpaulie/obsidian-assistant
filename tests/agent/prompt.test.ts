@@ -24,7 +24,7 @@ describe('buildSystemPrompt', () => {
 		expect(prompt).not.toContain('explicitly referenced');
 	});
 
-	it('includes user prompt, active note, references, and RAG, preferring references', () => {
+	it('includes user prompt last after active note, references, and RAG', () => {
 		const prompt = buildSystemPrompt({
 			userPrompt: 'Be terse.',
 			activeNotePath: 'Now.md',
@@ -39,5 +39,24 @@ describe('buildSystemPrompt', () => {
 		expect(prompt).toContain('Retrieved vault context:');
 		expect(prompt).toContain('[[Rag.md]]');
 		expect(prompt.indexOf('explicitly referenced')).toBeLessThan(prompt.indexOf('Retrieved vault context'));
+		expect(prompt.indexOf('Retrieved vault context')).toBeLessThan(prompt.indexOf('Be terse.'));
+		expect(prompt.endsWith('Be terse.')).toBe(true);
+	});
+
+	it('frames a system note override last with priority over vault context', () => {
+		const prompt = buildSystemPrompt({
+			userPrompt: 'always respond in German',
+			systemNotePath: 'Bucataras/system.md',
+			activeNotePath: 'Bucataras/planificare/retete/foo.md',
+			ragHits: [hit],
+			referencedNotes: [],
+		});
+		expect(prompt).toContain('[[Bucataras/system.md]]');
+		expect(prompt).toContain('highest priority');
+		expect(prompt).toContain('always respond in German');
+		expect(prompt.indexOf('Retrieved vault context')).toBeLessThan(
+			prompt.indexOf('highest priority'),
+		);
+		expect(prompt.indexOf('highest priority')).toBeLessThan(prompt.indexOf('always respond in German'));
 	});
 });
