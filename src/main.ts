@@ -1,5 +1,6 @@
 import { Notice, Plugin } from 'obsidian';
 import { ChatHistoryStore } from './chat/history-store';
+import { SavedPromptStore } from './prompts/saved-prompt-store';
 import { VIEW_TYPE_CHAT } from './constants';
 import { VaultIndexer } from './rag/indexer';
 import { DEFAULT_SETTINGS, type VaultAssistantSettings } from './settings';
@@ -11,11 +12,13 @@ export default class VaultAssistantPlugin extends Plugin {
 	settings!: VaultAssistantSettings;
 	indexer!: VaultIndexer;
 	chatHistory!: ChatHistoryStore;
+	savedPrompts!: SavedPromptStore;
 
 	async onload(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<VaultAssistantSettings>);
 		this.indexer = new VaultIndexer(this);
 		this.chatHistory = new ChatHistoryStore(this);
+		this.savedPrompts = new SavedPromptStore(this);
 
 		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this));
 
@@ -46,6 +49,14 @@ export default class VaultAssistantPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'insert-saved-prompt',
+			name: 'Insert saved prompt',
+			callback: () => {
+				void this.insertSavedPromptFromCommand();
+			},
+		});
+
+		this.addCommand({
 			id: 'rebuild-index',
 			name: 'Rebuild search index',
 			callback: () => {
@@ -70,6 +81,7 @@ export default class VaultAssistantPlugin extends Plugin {
 	onunload(): void {
 		this.indexer.unload();
 		this.chatHistory.unload();
+		this.savedPrompts.unload();
 	}
 
 	async saveSettings(): Promise<void> {
@@ -97,6 +109,16 @@ export default class VaultAssistantPlugin extends Plugin {
 		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)) {
 			if (leaf.view instanceof ChatView) {
 				leaf.view.addOpenNote();
+				return;
+			}
+		}
+	}
+
+	private async insertSavedPromptFromCommand(): Promise<void> {
+		await this.activateChatView();
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)) {
+			if (leaf.view instanceof ChatView) {
+				await leaf.view.pickAndInsertSavedPrompt();
 				return;
 			}
 		}

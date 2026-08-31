@@ -702,3 +702,96 @@ body.is-mobile .vault-assistant-folder-tree-name {
 	text-overflow: unset;
 	overflow-wrap: anywhere;
 }
+
+.vault-assistant-setting-saved-prompts .setting-item-control {
+	width: 100%;
+	justify-content: flex-start;
+	text-align: start;
+}
+
+.vault-assistant-saved-prompts {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-4-2);
+	width: 100%;
+}
+
+.vault-assistant-saved-prompts-toolbar {
+	display: flex;
+	justify-content: flex-start;
+}
+
+.vault-assistant-saved-prompts-empty {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	text-align: start;
+}
+
+.vault-assistant-saved-prompts-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	width: 100%;
+}
+
+.vault-assistant-saved-prompt-row {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-2-1);
+	padding: var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+}
+
+.vault-assistant-saved-prompt-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+}
+
+.vault-assistant-saved-prompt-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-weight: var(--font-medium);
+	text-align: start;
+}
+
+.vault-assistant-saved-prompt-preview {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	text-align: start;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vault-assistant-saved-prompt-actions {
+	display: flex;
+	flex-shrink: 0;
+	gap: var(--size-2-2);
+}
+
+.vault-assistant-prompt-editor-row {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-2);
+	margin-bottom: var(--size-4-3);
+}
+
+.vault-assistant-prompt-editor-row label {
+	font-weight: var(--font-medium);
+}
+
+.vault-assistant-prompt-editor-name,
+.vault-assistant-prompt-editor-content {
+	width: 100%;
+}
+
+.vault-assistant-prompt-editor-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-4-2);
+}

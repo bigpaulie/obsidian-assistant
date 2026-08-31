@@ -6,7 +6,7 @@ import {
 	type StoredConversation,
 } from '../chat/history-store';
 import { fallbackTitle, generateConversationTitle } from '../chat/title';
-import { MAX_PHOTO_ATTACHMENTS, MAX_PHOTO_BYTES, MAX_REFERENCED_NOTES, VIEW_TYPE_CHAT } from '../constants';
+import { MAX_PHOTO_ATTACHMENTS, MAX_PHOTO_BYTES, MAX_REFERENCED_NOTES, SAVED_PROMPT_PICKER_DELAY_MS, VIEW_TYPE_CHAT } from '../constants';
 import { formatDebugLines } from '../debug';
 import { contentToDisplayText } from '../llm/content-parts';
 import { formatChatError, LlmError } from '../llm/errors';
@@ -20,6 +20,7 @@ import { renderApplyCard } from './apply-card';
 import { ChatHistoryModal } from './chat-history-modal';
 import { composerKeyboardInset, MOBILE_KEYBOARD_INSET_THRESHOLD } from './keyboard-inset';
 import { NoteSuggestModal, wikilinkFor } from './note-suggest';
+import { SavedPromptModal } from './saved-prompt-modal';
 
 const UNTITLED_CHAT = 'New chat';
 
@@ -55,6 +56,7 @@ export class ChatView extends ItemView {
 	private currentTitle = '';
 	private conversationCreatedAt: number | null = null;
 	private titleRequestId = 0;
+	private savedPromptTriggerTimer: number | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -142,7 +144,7 @@ export class ChatView extends ItemView {
 				rows: '1',
 				placeholder: Platform.isMobile
 					? 'Ask about your notes.'
-					: 'Ask about your notes. Type [[ to add a note.',
+					: 'Ask about your notes. Type [[ for a note or @ then Space for a saved prompt.',
 				...(Platform.isMobile ? { enterkeyhint: 'enter' } : {}),
 			},
 		});
@@ -164,7 +166,18 @@ export class ChatView extends ItemView {
 			if (Platform.isMobile) {
 				return;
 			}
+			if (event.key !== 'Backspace' && event.key !== 'Delete' && event.key.length === 1) {
+				this.clearSavedPromptTriggerTimer();
+			}
+			if (event.key === ' ' && this.handleSavedPromptTriggerKey()) {
+				event.preventDefault();
+				return;
+			}
 			if (event.key === 'Enter' && !event.shiftKey) {
+				if (this.handleSavedPromptTriggerKey()) {
+					event.preventDefault();
+					return;
+				}
 				event.preventDefault();
 				void this.send();
 			}
@@ -172,6 +185,7 @@ export class ChatView extends ItemView {
 		this.registerDomEvent(this.inputEl, 'input', () => {
 			this.syncComposerHeight();
 			this.maybeOpenWikiSuggest();
+			this.maybeScheduleSavedPromptPicker();
 		});
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
 			this.updateSystemSource();
@@ -608,6 +622,21 @@ export class ChatView extends ItemView {
 		this.openNotePicker({ start: pos - 2, length: 2 });
 	}
 
+	private maybeScheduleSavedPromptPicker(): void {
+		if (this.suggestOpen || this.running) {
+			return;
+		}
+		const pos = this.inputEl.selectionStart ?? 0;
+		const before = this.inputEl.value.slice(0, pos);
+		const lineStart = before.lastIndexOf('\n') + 1;
+		const segment = before.slice(lineStart);
+		if (segment === '@' && this.isSavedPromptTriggerBoundary(lineStart)) {
+			this.scheduleSavedPromptPicker(lineStart);
+			return;
+		}
+		this.clearSavedPromptTriggerTimer();
+	}
+
 	private insertWikiLink(file: TFile, start: number, length: number): void {
 		const link = wikilinkFor(this.app, file);
 		const value = this.inputEl.value;
@@ -616,6 +645,118 @@ export class ChatView extends ItemView {
 		this.inputEl.setSelectionRange(cursor, cursor);
 		this.inputEl.focus();
 		this.syncComposerHeight();
+	}
+
+	/** Insert saved prompt text at the cursor or replace a range. */
+	insertSavedPrompt(text: string, replace?: { start: number; length: number }): void {
+		const value = this.inputEl.value;
+		if (replace) {
+			this.inputEl.value = value.slice(0, replace.start) + text + value.slice(replace.start + replace.length);
+			const cursor = replace.start + text.length;
+			this.inputEl.setSelectionRange(cursor, cursor);
+		} else {
+			const pos = this.inputEl.selectionStart ?? value.length;
+			this.inputEl.value = value.slice(0, pos) + text + value.slice(pos);
+			const cursor = pos + text.length;
+			this.inputEl.setSelectionRange(cursor, cursor);
+		}
+		this.inputEl.focus();
+		this.syncComposerHeight();
+	}
+
+	async pickAndInsertSavedPrompt(replace?: { start: number; length: number }): Promise<void> {
+		if (this.suggestOpen || this.running) {
+			return;
+		}
+		const prompts = await this.plugin.savedPrompts.list();
+		if (prompts.length === 0) {
+			new Notice('No saved prompts yet. Add them in settings → vault assistant → saved prompts.');
+			return;
+		}
+		this.suggestOpen = true;
+		const modal = new SavedPromptModal(
+			this.app,
+			prompts,
+			(prompt) => {
+				this.insertSavedPrompt(prompt.content, replace);
+			},
+			() => {
+				this.suggestOpen = false;
+			},
+		);
+		modal.open();
+	}
+
+	private isSavedPromptTriggerBoundary(pos: number): boolean {
+		if (pos === 0) {
+			return true;
+		}
+		const before = this.inputEl.value[pos - 1];
+		return before === undefined || /\s/.test(before);
+	}
+
+	private scheduleSavedPromptPicker(triggerStart: number): void {
+		this.clearSavedPromptTriggerTimer();
+		this.savedPromptTriggerTimer = window.setTimeout(() => {
+			this.savedPromptTriggerTimer = null;
+			const value = this.inputEl.value;
+			const pos = this.inputEl.selectionStart ?? 0;
+			if (value.slice(triggerStart, pos) !== '@') {
+				return;
+			}
+			void this.pickAndInsertSavedPrompt({ start: triggerStart, length: 1 });
+		}, SAVED_PROMPT_PICKER_DELAY_MS);
+	}
+
+	private clearSavedPromptTriggerTimer(): void {
+		if (this.savedPromptTriggerTimer !== null) {
+			window.clearTimeout(this.savedPromptTriggerTimer);
+			this.savedPromptTriggerTimer = null;
+		}
+	}
+
+	private savedPromptTriggerSegment(): { lineStart: number; segment: string } | null {
+		const pos = this.inputEl.selectionStart ?? 0;
+		const before = this.inputEl.value.slice(0, pos);
+		const lineStart = before.lastIndexOf('\n') + 1;
+		const segment = before.slice(lineStart);
+		if (!segment.startsWith('@') || !this.isSavedPromptTriggerBoundary(lineStart)) {
+			return null;
+		}
+		return { lineStart, segment };
+	}
+
+	private handleSavedPromptTriggerKey(): boolean {
+		const trigger = this.savedPromptTriggerSegment();
+		if (!trigger) {
+			return false;
+		}
+		if (trigger.segment === '@') {
+			this.clearSavedPromptTriggerTimer();
+			void this.pickAndInsertSavedPrompt({ start: trigger.lineStart, length: 1 });
+			return true;
+		}
+		if (/^@.+$/.test(trigger.segment)) {
+			void this.expandSavedPromptTrigger();
+			return true;
+		}
+		return false;
+	}
+
+	private async expandSavedPromptTrigger(): Promise<void> {
+		const pos = this.inputEl.selectionStart ?? 0;
+		const before = this.inputEl.value.slice(0, pos);
+		const lineStart = before.lastIndexOf('\n') + 1;
+		const lineSegment = before.slice(lineStart);
+		const match = /^@(.+)$/.exec(lineSegment);
+		if (!match?.[1]) {
+			return;
+		}
+		const prompt = await this.plugin.savedPrompts.getByName(match[1].trim());
+		if (!prompt) {
+			return;
+		}
+		this.insertSavedPrompt(prompt.content, { start: lineStart, length: lineSegment.length });
 	}
 
 	private addChip(file: TFile): void {
