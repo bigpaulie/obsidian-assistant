@@ -21,6 +21,10 @@ import { ChatHistoryModal } from './chat-history-modal';
 import { composerKeyboardInset, MOBILE_KEYBOARD_INSET_THRESHOLD } from './keyboard-inset';
 import { NoteSuggestModal, wikilinkFor } from './note-suggest';
 import { SavedPromptModal } from './saved-prompt-modal';
+import {
+	savedPromptSpaceTrigger,
+	savedPromptTriggerSegment,
+} from './saved-prompt-trigger';
 
 const UNTITLED_CHAT = 'New chat';
 
@@ -57,6 +61,8 @@ export class ChatView extends ItemView {
 	private conversationCreatedAt: number | null = null;
 	private titleRequestId = 0;
 	private savedPromptTriggerTimer: number | null = null;
+	private mobileKeyboardSyncRaf: number | null = null;
+	private lastAppliedKeyboardInset = -1;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -143,7 +149,7 @@ export class ChatView extends ItemView {
 			attr: {
 				rows: '1',
 				placeholder: Platform.isMobile
-					? 'Ask about your notes.'
+					? 'Ask about your notes. Type @ then Space for a saved prompt.'
 					: 'Ask about your notes. Type [[ for a note or @ then Space for a saved prompt.',
 				...(Platform.isMobile ? { enterkeyhint: 'enter' } : {}),
 			},
@@ -163,9 +169,6 @@ export class ChatView extends ItemView {
 		this.registerDomEvent(this.sendBtn, 'click', () => void this.send());
 		this.registerDomEvent(this.stopBtn, 'click', () => this.stop());
 		this.registerDomEvent(this.inputEl, 'keydown', (event) => {
-			if (Platform.isMobile) {
-				return;
-			}
 			if (event.key !== 'Backspace' && event.key !== 'Delete' && event.key.length === 1) {
 				this.clearSavedPromptTriggerTimer();
 			}
@@ -178,13 +181,16 @@ export class ChatView extends ItemView {
 					event.preventDefault();
 					return;
 				}
-				event.preventDefault();
-				void this.send();
+				if (!Platform.isMobile) {
+					event.preventDefault();
+					void this.send();
+				}
 			}
 		});
 		this.registerDomEvent(this.inputEl, 'input', () => {
 			this.syncComposerHeight();
 			this.maybeOpenWikiSuggest();
+			this.maybeHandleSavedPromptSpaceInput();
 			this.maybeScheduleSavedPromptPicker();
 		});
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
@@ -542,7 +548,7 @@ export class ChatView extends ItemView {
 			return;
 		}
 		this.restInnerHeight = window.innerHeight;
-		const sync = (): void => this.syncMobileKeyboard();
+		const sync = (): void => this.scheduleMobileKeyboardSync();
 		const vv = window.visualViewport;
 		if (vv) {
 			vv.addEventListener('resize', sync);
@@ -570,6 +576,9 @@ export class ChatView extends ItemView {
 			sync();
 		});
 		this.registerDomEvent(this.inputEl, 'blur', () => {
+			if (this.suggestOpen) {
+				return;
+			}
 			sync();
 		});
 		this.registerDomEvent(this.messagesEl, 'click', () => {
@@ -578,22 +587,59 @@ export class ChatView extends ItemView {
 		sync();
 	}
 
+	private scheduleMobileKeyboardSync(): void {
+		if (!Platform.isMobile) {
+			return;
+		}
+		if (this.mobileKeyboardSyncRaf !== null) {
+			window.cancelAnimationFrame(this.mobileKeyboardSyncRaf);
+		}
+		this.mobileKeyboardSyncRaf = window.requestAnimationFrame(() => {
+			this.mobileKeyboardSyncRaf = null;
+			this.syncMobileKeyboard();
+		});
+	}
+
 	private syncMobileKeyboard(): void {
 		if (!Platform.isMobile) {
 			return;
 		}
-		const inset = this.mobileKeyboardInset();
-		const open = inset > MOBILE_KEYBOARD_INSET_THRESHOLD;
-		this.contentEl.toggleClass('is-keyboard-open', open);
-		if (open) {
-			this.containerEl.style.setProperty('--vault-assistant-keyboard-inset', `${inset}px`);
-			this.scrollToBottom();
-		} else {
-			this.containerEl.style.removeProperty('--vault-assistant-keyboard-inset');
-			if (this.inputEl !== document.activeElement) {
-				this.restInnerHeight = window.innerHeight;
+		const obsidianKeyboardHeight =
+			parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height')) || 0;
+		const focused = this.inputEl === document.activeElement;
+		let inset = this.mobileKeyboardInset();
+		const keyboardReported = obsidianKeyboardHeight > MOBILE_KEYBOARD_INSET_THRESHOLD;
+		let open = inset > MOBILE_KEYBOARD_INSET_THRESHOLD;
+
+		if (!open && (focused || this.suggestOpen) && keyboardReported) {
+			open = true;
+			if (inset <= MOBILE_KEYBOARD_INSET_THRESHOLD) {
+				inset = Math.max(
+					0,
+					this.containerEl.getBoundingClientRect().bottom
+						- (window.innerHeight - obsidianKeyboardHeight),
+				);
 			}
 		}
+
+		if (!open) {
+			this.contentEl.removeClass('is-keyboard-open');
+			this.containerEl.style.removeProperty('--vault-assistant-keyboard-inset');
+			this.lastAppliedKeyboardInset = 0;
+			if (!focused) {
+				this.restInnerHeight = window.innerHeight;
+			}
+			return;
+		}
+
+		if (Math.abs(inset - this.lastAppliedKeyboardInset) < 2 && this.contentEl.hasClass('is-keyboard-open')) {
+			return;
+		}
+
+		this.contentEl.addClass('is-keyboard-open');
+		this.containerEl.style.setProperty('--vault-assistant-keyboard-inset', `${inset}px`);
+		this.lastAppliedKeyboardInset = inset;
+		this.scrollToBottom();
 	}
 
 	private mobileKeyboardInset(): number {
@@ -622,16 +668,34 @@ export class ChatView extends ItemView {
 		this.openNotePicker({ start: pos - 2, length: 2 });
 	}
 
+	private maybeHandleSavedPromptSpaceInput(): void {
+		if (!Platform.isMobile || this.suggestOpen || this.running) {
+			return;
+		}
+		const pos = this.inputEl.selectionStart ?? 0;
+		const trigger = savedPromptSpaceTrigger(this.inputEl.value, pos);
+		if (!trigger) {
+			return;
+		}
+		const value = this.inputEl.value;
+		this.inputEl.value = value.slice(0, pos - 1) + value.slice(pos);
+		this.inputEl.setSelectionRange(pos - 1, pos - 1);
+		this.clearSavedPromptTriggerTimer();
+		if (trigger.kind === 'picker') {
+			void this.pickAndInsertSavedPrompt({ start: trigger.lineStart, length: 1 });
+			return;
+		}
+		void this.expandSavedPromptTrigger(trigger.lineStart, trigger.segment);
+	}
+
 	private maybeScheduleSavedPromptPicker(): void {
 		if (this.suggestOpen || this.running) {
 			return;
 		}
 		const pos = this.inputEl.selectionStart ?? 0;
-		const before = this.inputEl.value.slice(0, pos);
-		const lineStart = before.lastIndexOf('\n') + 1;
-		const segment = before.slice(lineStart);
-		if (segment === '@' && this.isSavedPromptTriggerBoundary(lineStart)) {
-			this.scheduleSavedPromptPicker(lineStart);
+		const trigger = savedPromptTriggerSegment(this.inputEl.value, pos);
+		if (trigger?.segment === '@') {
+			this.scheduleSavedPromptPicker(trigger.lineStart);
 			return;
 		}
 		this.clearSavedPromptTriggerTimer();
@@ -662,6 +726,7 @@ export class ChatView extends ItemView {
 		}
 		this.inputEl.focus();
 		this.syncComposerHeight();
+		this.normalizeComposerScroll();
 	}
 
 	async pickAndInsertSavedPrompt(replace?: { start: number; length: number }): Promise<void> {
@@ -678,21 +743,37 @@ export class ChatView extends ItemView {
 			this.app,
 			prompts,
 			(prompt) => {
-				this.insertSavedPrompt(prompt.content, replace);
+				this.inputEl.scrollLeft = 0;
+				this.inputEl.scrollTop = 0;
+				const resolved = this.resolveSavedPromptReplace(replace);
+				this.insertSavedPrompt(prompt.content, resolved);
 			},
 			() => {
 				this.suggestOpen = false;
+				this.scheduleMobileKeyboardSync();
 			},
 		);
 		modal.open();
 	}
 
-	private isSavedPromptTriggerBoundary(pos: number): boolean {
-		if (pos === 0) {
-			return true;
+	private resolveSavedPromptReplace(
+		replace?: { start: number; length: number },
+	): { start: number; length: number } | undefined {
+		if (!replace) {
+			return undefined;
 		}
-		const before = this.inputEl.value[pos - 1];
-		return before === undefined || /\s/.test(before);
+		const value = this.inputEl.value;
+		const segment = value.slice(replace.start, replace.start + replace.length);
+		if (segment.startsWith('@')) {
+			return replace;
+		}
+		const trigger =
+			savedPromptTriggerSegment(value, replace.start + 1)
+			?? savedPromptTriggerSegment(value, this.inputEl.selectionStart ?? value.length);
+		if (!trigger) {
+			return undefined;
+		}
+		return { start: trigger.lineStart, length: trigger.segment.length };
 	}
 
 	private scheduleSavedPromptPicker(triggerStart: number): void {
@@ -715,19 +796,9 @@ export class ChatView extends ItemView {
 		}
 	}
 
-	private savedPromptTriggerSegment(): { lineStart: number; segment: string } | null {
-		const pos = this.inputEl.selectionStart ?? 0;
-		const before = this.inputEl.value.slice(0, pos);
-		const lineStart = before.lastIndexOf('\n') + 1;
-		const segment = before.slice(lineStart);
-		if (!segment.startsWith('@') || !this.isSavedPromptTriggerBoundary(lineStart)) {
-			return null;
-		}
-		return { lineStart, segment };
-	}
-
 	private handleSavedPromptTriggerKey(): boolean {
-		const trigger = this.savedPromptTriggerSegment();
+		const pos = this.inputEl.selectionStart ?? 0;
+		const trigger = savedPromptTriggerSegment(this.inputEl.value, pos);
 		if (!trigger) {
 			return false;
 		}
@@ -737,17 +808,13 @@ export class ChatView extends ItemView {
 			return true;
 		}
 		if (/^@.+$/.test(trigger.segment)) {
-			void this.expandSavedPromptTrigger();
+			void this.expandSavedPromptTrigger(trigger.lineStart, trigger.segment);
 			return true;
 		}
 		return false;
 	}
 
-	private async expandSavedPromptTrigger(): Promise<void> {
-		const pos = this.inputEl.selectionStart ?? 0;
-		const before = this.inputEl.value.slice(0, pos);
-		const lineStart = before.lastIndexOf('\n') + 1;
-		const lineSegment = before.slice(lineStart);
+	private async expandSavedPromptTrigger(lineStart: number, lineSegment: string): Promise<void> {
 		const match = /^@(.+)$/.exec(lineSegment);
 		if (!match?.[1]) {
 			return;
@@ -996,12 +1063,32 @@ export class ChatView extends ItemView {
 
 	private syncComposerHeight(): void {
 		this.inputEl.style.removeProperty('height');
-		const nextHeight = this.inputEl.scrollHeight;
+		const computed = getComputedStyle(this.inputEl);
+		const maxHeight = Number.parseFloat(computed.maxHeight);
+		let nextHeight = this.inputEl.scrollHeight;
+		if (Number.isFinite(maxHeight) && maxHeight > 0) {
+			nextHeight = Math.min(nextHeight, maxHeight);
+		}
 		this.inputEl.style.height = `${nextHeight}px`;
-		const lineHeight = Number.parseFloat(getComputedStyle(this.inputEl).lineHeight);
+		this.normalizeComposerScroll();
+		const lineHeight = Number.parseFloat(computed.lineHeight);
 		const isMultiline =
 			Number.isFinite(lineHeight) && lineHeight > 0 && nextHeight > lineHeight * 1.5;
 		this.composerInputRowEl.toggleClass('is-multiline', isMultiline);
+	}
+
+	/** iOS textareas can retain stale horizontal scroll after content changes. */
+	private normalizeComposerScroll(): void {
+		const reset = (): void => {
+			this.inputEl.scrollLeft = 0;
+		};
+		reset();
+		if (Platform.isMobile) {
+			window.requestAnimationFrame(() => {
+				reset();
+				window.requestAnimationFrame(reset);
+			});
+		}
 	}
 
 	private async appendUserMessage(text: string, photos: PendingPhoto[] = []): Promise<void> {
