@@ -46,7 +46,7 @@ The community scanner runs `npm ci --ignore-scripts` on npm 10. Keep `esbuild` i
 
 ## Release
 
-Release artifacts: `main.js`, `manifest.json`, and `styles.css`. Do not commit `main.js`, `data.json`, `search-index.json`, or `chat-history.json`. Do not attach locally built assets; GitHub Actions builds and attests them.
+Release artifacts: `main.js`, `manifest.json`, and `styles.css`. Do not commit `main.js`, `data.json`, `search-index.json`, `chat-history.json`, or `saved-prompts.json`. Do not attach locally built assets; GitHub Actions builds and attests them.
 
 1. Update [CHANGELOG.md](./CHANGELOG.md) (Keep a Changelog): move items from Unreleased into a dated version section and refresh the compare links at the bottom.
 2. Run `npm version patch` (or minor/major) so `package.json`, `manifest.json`, and `versions.json` stay in sync. That creates a local commit and tag (`x.y.z`, no `v` prefix).

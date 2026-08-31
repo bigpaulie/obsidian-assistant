@@ -12,6 +12,7 @@ import {
 	toggleExcludedFolder,
 } from '../vault/paths';
 import { renderExcludeFolderTree } from './exclude-folder-tree';
+import { renderSavedPromptsSettings } from './saved-prompts-settings';
 
 type SettingsKey = keyof VaultAssistantSettings;
 type ApiKeyField = 'openaiApiKey' | 'openrouterApiKey' | 'ollamaApiKey';
@@ -202,6 +203,18 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 			},
 			{
 				type: 'group',
+				heading: 'Saved prompts',
+				cls: 'vault-assistant-settings-group',
+				items: [
+					{
+						name: 'Reusable chat prompts',
+						desc: 'Saved in the plugin folder. In chat, type @ then Space for the picker, @name then Space or Enter to expand, or run Insert saved prompt.',
+						render: (setting) => this.renderSavedPrompts(setting),
+					},
+				],
+			},
+			{
+				type: 'group',
 				heading: 'Retrieval',
 				cls: 'vault-assistant-settings-group',
 				items: [
@@ -279,6 +292,19 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 				],
 			},
 		];
+	}
+
+	private renderSavedPrompts(setting: Setting): void {
+		setting.setClass('vault-assistant-setting-saved-prompts');
+		const host = setting.controlEl;
+		const paint = (): void => {
+			void renderSavedPromptsSettings(host, {
+				app: this.app,
+				store: this.plugin.savedPrompts,
+				onChange: () => this.update(),
+			});
+		};
+		paint();
 	}
 
 	private renderExcludeFolders(setting: Setting): void {

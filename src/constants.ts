@@ -2,8 +2,13 @@ export const PLUGIN_NAME = 'Vault Assistant';
 export const VIEW_TYPE_CHAT = 'vault-assistant-chat';
 export const INDEX_FILE_NAME = 'search-index.json';
 export const CHAT_HISTORY_FILE_NAME = 'chat-history.json';
+export const SAVED_PROMPTS_FILE_NAME = 'saved-prompts.json';
 export const MAX_STORED_CONVERSATIONS = 50;
+export const MAX_SAVED_PROMPTS = 50;
 export const CHAT_HISTORY_PERSIST_DEBOUNCE_MS = 500;
+export const SAVED_PROMPTS_PERSIST_DEBOUNCE_MS = 500;
+/** Pause after a lone `@` before opening the fuzzy picker (allows typing `@name`). */
+export const SAVED_PROMPT_PICKER_DELAY_MS = 1_500;
 export const CHAT_TITLE_MAX_CHARS = 60;
 
 export const DEFAULT_OLLAMA_URL = 'http://localhost:11434';

@@ -19,6 +19,7 @@ main.js
 data.json
 search-index.json
 chat-history.json
+saved-prompts.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
