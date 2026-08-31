@@ -33,6 +33,15 @@ export function getToolDefinitions(includeSearch: boolean): ToolSpec[] {
 	}
 	tools.push(
 		{
+			name: 'get_current_datetime',
+			description:
+				'Get the user\'s current local date and time. Use when answering questions about today, deadlines, scheduling, or time-sensitive context.',
+			parameters: {
+				type: 'object',
+				properties: {},
+			},
+		},
+		{
 			name: 'read_note',
 			description: 'Read a markdown note by vault path (for example Folder/Note.md).',
 			parameters: {
@@ -98,6 +107,8 @@ export async function executeTool(
 	switch (name) {
 		case 'search_notes':
 			return searchNotes(plugin, rawArgs);
+		case 'get_current_datetime':
+			return getCurrentDateTime();
 		case 'read_note':
 			return readNoteTool(plugin, rawArgs);
 		case 'propose_create_note':
@@ -109,6 +120,29 @@ export async function executeTool(
 		default:
 			return { type: 'text', text: `Unknown tool: ${name}` };
 	}
+}
+
+export function formatCurrentDateTime(now = new Date()): string {
+	const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const local = now.toLocaleString(undefined, {
+		weekday: 'long',
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+		second: '2-digit',
+		timeZoneName: 'short',
+	});
+	return [
+		`Local: ${local}`,
+		`Time zone: ${timeZone}`,
+		`ISO 8601 (UTC): ${now.toISOString()}`,
+	].join('\n');
+}
+
+function getCurrentDateTime(): ToolOutcome {
+	return { type: 'text', text: formatCurrentDateTime() };
 }
 
 function searchNotes(plugin: VaultAssistantPlugin, rawArgs: unknown): ToolOutcome {
