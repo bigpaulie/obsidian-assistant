@@ -236,7 +236,6 @@
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
 	padding: 0;
-	overflow: hidden;
 }
 
 .vault-assistant-composer-field.has-attachments {
@@ -265,6 +264,7 @@
 	min-height: 0;
 	max-height: 40vh;
 	overflow-y: auto;
+	overflow-wrap: anywhere;
 	background-color: transparent;
 	color: var(--text-normal);
 	border: none;
@@ -273,6 +273,7 @@
 	padding: 0;
 	margin: 0;
 	line-height: var(--line-height-normal);
+	box-sizing: border-box;
 }
 
 .vault-assistant-composer-input-row textarea.is-disabled {
@@ -489,6 +490,10 @@ body.is-mobile .workspace-leaf-content[data-type="vault-assistant-chat"] .view-c
 	max-height: 30vh;
 	font-size: 16px;
 	line-height: 1.5;
+	padding-block: var(--size-2-2);
+	padding-inline: var(--size-2-3);
+	-webkit-appearance: none;
+	appearance: none;
 }
 
 .vault-assistant-root.is-mobile .vault-assistant-composer-context {
