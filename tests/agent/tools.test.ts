@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildMoveProposal, buildNoteProposal, executeTool, getToolDefinitions } from '../../src/agent/tools';
+import {
+	buildMoveProposal,
+	buildNoteProposal,
+	executeTool,
+	formatCurrentDateTime,
+	getToolDefinitions,
+} from '../../src/agent/tools';
 
 function pluginStub(files: Record<string, { path: string; extension: string }> = {}) {
 	const create = vi.fn();
@@ -29,12 +35,14 @@ describe('getToolDefinitions', () => {
 	it('includes search only when requested', () => {
 		expect(getToolDefinitions(true).map((tool) => tool.name)).toEqual([
 			'search_notes',
+			'get_current_datetime',
 			'read_note',
 			'propose_create_note',
 			'propose_update_note',
 			'propose_move_note',
 		]);
 		expect(getToolDefinitions(false).map((tool) => tool.name)).toEqual([
+			'get_current_datetime',
 			'read_note',
 			'propose_create_note',
 			'propose_update_note',
@@ -140,7 +148,27 @@ describe('buildMoveProposal', () => {
 	});
 });
 
+describe('formatCurrentDateTime', () => {
+	it('includes local, timezone, and ISO lines for a fixed instant', () => {
+		const text = formatCurrentDateTime(new Date('2026-08-31T10:20:00.000Z'));
+		expect(text).toContain('Local:');
+		expect(text).toContain('Time zone:');
+		expect(text).toContain('ISO 8601 (UTC): 2026-08-31T10:20:00.000Z');
+	});
+});
+
 describe('executeTool', () => {
+	it('returns current date and time', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-08-31T10:20:00.000Z'));
+		const { plugin } = pluginStub();
+		await expect(executeTool(plugin as never, 'get_current_datetime', {})).resolves.toEqual({
+			type: 'text',
+			text: formatCurrentDateTime(new Date('2026-08-31T10:20:00.000Z')),
+		});
+		vi.useRealTimers();
+	});
+
 	it('returns text for unknown tools', async () => {
 		const { plugin } = pluginStub();
 		await expect(executeTool(plugin as never, 'launch_missiles', {})).resolves.toEqual({
