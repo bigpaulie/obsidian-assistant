@@ -800,3 +800,38 @@ body.is-mobile .vault-assistant-folder-tree-name {
 	justify-content: flex-end;
 	gap: var(--size-4-2);
 }
+
+body.is-mobile .vault-assistant-prompt-editor-container {
+	padding-bottom: var(--vault-assistant-modal-keyboard-inset, 0px);
+	transition: padding-bottom 0.2s ease;
+}
+
+body.is-mobile .vault-assistant-prompt-editor-body {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+}
+
+body.is-mobile .vault-assistant-prompt-editor-scroll {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+body.is-mobile .vault-assistant-prompt-editor-buttons {
+	flex-shrink: 0;
+}
+
+body.is-mobile .vault-assistant-prompt-editor-name,
+body.is-mobile .vault-assistant-prompt-editor-content {
+	font-size: 16px;
+	line-height: 1.5;
+}
+
+body.is-mobile .vault-assistant-prompt-editor-buttons button {
+	min-width: 44px;
+	min-height: 44px;
+}

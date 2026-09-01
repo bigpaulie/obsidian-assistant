@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Mobile saved-prompt editor: keeps Save and Cancel above the software keyboard without jumping position when focusing the prompt field; the form scrolls when needed, and tapping the title dismisses the keyboard.
+
 ## [1.10.1] - 2026-08-31
 
 ### Fixed
