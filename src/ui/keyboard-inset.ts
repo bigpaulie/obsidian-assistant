@@ -9,6 +9,93 @@ export interface ComposerKeyboardInsetInput {
 	containerBottom: number;
 }
 
+export interface MobileVisibleViewportHeightInput {
+	innerHeight: number;
+	restInnerHeight?: number;
+	visualViewportHeight?: number;
+	visualViewportOffsetTop?: number;
+	obsidianKeyboardHeight: number;
+}
+
+export interface MobileVisibleBottomYInput extends MobileVisibleViewportHeightInput {
+	forceKeyboardOpen?: boolean;
+}
+
+export interface ModalKeyboardContainerInsetInput extends MobileVisibleBottomYInput {
+	margin?: number;
+}
+
+function keyboardOverlapHeight(input: {
+	innerHeight: number;
+	visualViewportHeight?: number;
+	visualViewportOffsetTop?: number;
+	obsidianKeyboardHeight: number;
+}): number {
+	let viewportKeyboard = 0;
+	if (input.visualViewportHeight != null) {
+		viewportKeyboard = Math.max(
+			0,
+			input.innerHeight - input.visualViewportHeight - (input.visualViewportOffsetTop ?? 0),
+		);
+	}
+	return Math.max(viewportKeyboard, input.obsidianKeyboardHeight);
+}
+
+/**
+ * Usable screen height above the software keyboard for sizing mobile overlays.
+ */
+export function mobileVisibleViewportHeight(input: MobileVisibleViewportHeightInput): number {
+	const restInnerHeight = input.restInnerHeight ?? input.innerHeight;
+	const layoutShrunkBy = Math.max(0, restInnerHeight - input.innerHeight);
+	if (layoutShrunkBy > MOBILE_KEYBOARD_INSET_THRESHOLD) {
+		return input.innerHeight;
+	}
+
+	const keyboardHeight = keyboardOverlapHeight(input);
+	if (keyboardHeight <= MOBILE_KEYBOARD_INSET_THRESHOLD) {
+		return input.innerHeight;
+	}
+	return input.innerHeight - keyboardHeight;
+}
+
+/**
+ * Y coordinate of the bottom edge of the usable screen above the software keyboard.
+ */
+export function mobileVisibleBottomY(input: MobileVisibleBottomYInput): number {
+	const restInnerHeight = input.restInnerHeight ?? input.innerHeight;
+	const layoutShrunkBy = Math.max(0, restInnerHeight - input.innerHeight);
+	if (layoutShrunkBy > MOBILE_KEYBOARD_INSET_THRESHOLD) {
+		return input.innerHeight;
+	}
+
+	let keyboardHeight = keyboardOverlapHeight(input);
+	const keyboardReported = input.obsidianKeyboardHeight > MOBILE_KEYBOARD_INSET_THRESHOLD;
+	if (keyboardHeight <= MOBILE_KEYBOARD_INSET_THRESHOLD && input.forceKeyboardOpen && keyboardReported) {
+		keyboardHeight = input.obsidianKeyboardHeight;
+	}
+
+	if (keyboardHeight <= MOBILE_KEYBOARD_INSET_THRESHOLD) {
+		return input.innerHeight;
+	}
+
+	if (input.visualViewportHeight != null) {
+		const viewportBottom = (input.visualViewportOffsetTop ?? 0) + input.visualViewportHeight;
+		return Math.min(viewportBottom, input.innerHeight - keyboardHeight);
+	}
+
+	return input.innerHeight - keyboardHeight;
+}
+
+/** Padding a modal container needs so content stays above the software keyboard. */
+export function modalKeyboardContainerInset(input: ModalKeyboardContainerInsetInput): number {
+	const margin = input.margin ?? 0;
+	const visibleBottomY = mobileVisibleBottomY(input);
+	if (visibleBottomY >= input.innerHeight) {
+		return 0;
+	}
+	return Math.max(0, input.innerHeight - visibleBottomY + margin);
+}
+
 /**
  * Padding the chat leaf needs so the composer sits on the software keyboard.
  *
@@ -27,14 +114,7 @@ export function composerKeyboardInset(input: ComposerKeyboardInsetInput): number
 		return Math.max(0, input.containerBottom - input.innerHeight);
 	}
 
-	let viewportKeyboard = 0;
-	if (input.visualViewportHeight != null) {
-		viewportKeyboard = Math.max(
-			0,
-			input.innerHeight - input.visualViewportHeight - (input.visualViewportOffsetTop ?? 0),
-		);
-	}
-	const keyboardHeight = Math.max(viewportKeyboard, input.obsidianKeyboardHeight);
+	const keyboardHeight = keyboardOverlapHeight(input);
 	if (keyboardHeight <= MOBILE_KEYBOARD_INSET_THRESHOLD) {
 		return 0;
 	}
