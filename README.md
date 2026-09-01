@@ -31,11 +31,11 @@ Requires Obsidian 1.13.0+.
 6. Optionally **Detect models** and **Test connection**.
 7. Open chat from the ribbon or the command **Open chat**.
 
-Ollama must expose `/v1/chat/completions`. OpenAI gpt-5.4+ models (including gpt-5.6-sol) use `/v1/responses` for tools; OpenRouter and Ollama stay on Chat Completions. Tools are defined once and converted per API. Models that cannot use tools still answer from locally retrieved note chunks.
+Ollama must expose `/v1/chat/completions`. OpenAI gpt-5.4+ models (including gpt-5.6-sol) use `/v1/responses` for tools; OpenRouter and Ollama stay on Chat Completions. Tools are defined once and converted per API. When search is enabled, the model calls `search_notes` on demand instead of receiving automatic context in every prompt.
 
 ## Using chat
 
-- Ask a question. Matching notes are retrieved locally and sent with your prompt when search is enabled.
+- Ask a question. When search is enabled, the model can call `search_notes` to find relevant notes locally.
 - **Add note** picks any markdown note. **Add open note** uses notes already open in tabs. On desktop, type `[[` to insert a wikilink. Open notes are never attached unless you add them.
 - Referenced notes take priority over search results (up to 10).
 - When the assistant wants to create, update, or move a note, review the card and select **Apply** or **Dismiss**. **Open note** is available after you apply.
@@ -57,7 +57,7 @@ Ollama must expose `/v1/chat/completions`. OpenAI gpt-5.4+ models (including gpt
 
 - **On this device:** API keys in the plugin `data.json`, and the search index in `search-index.json`. Optional **Save chat history** (**Settings → Vault Assistant → Chat**, off by default) stores conversation transcripts in `chat-history.json` in the plugin folder so you can resume them from chat. Keys are never logged. Optional **Debug mode** (**Settings → Vault Assistant → Advanced**) shows a Debug card in chat after each reply (endpoint, timing, tools). It can also write the same metadata to the developer console; set the log level to **Verbose**. It does not log API keys or note contents.
 - **Indexing** lists markdown note paths in the vault (`getMarkdownFiles`) so search can run locally. It does not send notes anywhere. Use **Exclude folders** in settings to skip folders and everything inside them.
-- **Chat** sends your prompt, retrieved chunks, conversation history, notes you explicitly reference, and any note the assistant reads. The whole vault is not uploaded.
+- **Chat** sends your prompt, conversation history, notes you explicitly reference, and any notes the assistant reads or searches. The whole vault is not uploaded.
 - There is no telemetry. Network calls happen only when you chat, detect models, or test the connection, and only to the provider you chose (OpenAI, OpenRouter, or your Ollama URL).
 - Use Ollama on localhost if you do not want notes to leave the machine.
 

@@ -4,13 +4,14 @@ import { asString, isRecord, truncate } from '../utils';
 import { readNote, resolveMoveTarget } from '../vault/notes';
 import { resolveMarkdownFile, sanitizeVaultPath } from '../vault/paths';
 import type VaultAssistantPlugin from '../main';
+import { formatHitsForPrompt } from '../rag/retriever';
 
 export type NoteProposal =
 	| { action: 'create' | 'update'; path: string; content: string }
 	| { action: 'move'; path: string; destination: string };
 
 export type ToolOutcome =
-	| { type: 'text'; text: string }
+	| { type: 'text'; text: string; hitCount?: number }
 	| { type: 'proposal'; proposal: NoteProposal; text: string };
 
 /**
@@ -21,7 +22,8 @@ export function getToolDefinitions(includeSearch: boolean): ToolSpec[] {
 	if (includeSearch) {
 		tools.push({
 			name: 'search_notes',
-			description: 'Search the local vault index by keywords. Use this before answering questions about notes.',
+			description:
+				'Search the local vault index by keywords. Call this before answering any question about the user\'s notes or vault content.',
 			parameters: {
 				type: 'object',
 				properties: {
@@ -154,11 +156,12 @@ function searchNotes(plugin: VaultAssistantPlugin, rawArgs: unknown): ToolOutcom
 	if (hits.length === 0) {
 		return { type: 'text', text: 'No matching notes.' };
 	}
-	const lines = hits.map(
-		(hit) =>
-			`- [[${hit.path}]] score=${hit.score.toFixed(2)} ${hit.headings ? `(${hit.headings})` : ''}\n  ${hit.snippet.replace(/\n/g, ' ')}`,
-	);
-	return { type: 'text', text: truncate(lines.join('\n'), MAX_TOOL_RESULT_CHARS) };
+	const formatted = formatHitsForPrompt(hits);
+	return {
+		type: 'text',
+		text: truncate(formatted, MAX_TOOL_RESULT_CHARS) || 'No matching notes.',
+		hitCount: hits.length,
+	};
 }
 
 async function readNoteTool(plugin: VaultAssistantPlugin, rawArgs: unknown): Promise<ToolOutcome> {

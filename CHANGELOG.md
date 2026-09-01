@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Vault search no longer stuffs retrieved chunks into every system prompt. When **Use local note search** is on, the model calls `search_notes` on demand, reducing token usage on general chat.
+- **Max tool rounds** setting in **Chat** controls how many model rounds may include tool calls before the assistant must answer (default 5).
+
 ### Fixed
 
 - Mobile saved-prompt editor: keeps Save and Cancel above the software keyboard without jumping position when focusing the prompt field; the form scrolls when needed, and tapping the title dismisses the keyboard.

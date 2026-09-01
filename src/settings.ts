@@ -11,6 +11,7 @@ export interface VaultAssistantSettings {
 	model: string;
 	temperature: number;
 	maxTokens: number;
+	maxToolRounds: number;
 	systemPrompt: string;
 	ragEnabled: boolean;
 	maxChunks: number;
@@ -30,6 +31,7 @@ export const DEFAULT_SETTINGS: VaultAssistantSettings = {
 	model: DEFAULT_MODELS.openai,
 	temperature: 0.3,
 	maxTokens: 2048,
+	maxToolRounds: 5,
 	systemPrompt: '',
 	ragEnabled: true,
 	maxChunks: 8,
