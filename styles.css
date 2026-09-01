@@ -212,6 +212,39 @@
 	background-color: var(--background-secondary);
 }
 
+.vault-assistant-proposal-patch {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.vault-assistant-proposal-patch-block {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-1);
+}
+
+.vault-assistant-proposal-patch-label {
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-medium);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.vault-assistant-proposal-patch-text {
+	margin: 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.vault-assistant-proposal-patch-meta {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
 .vault-assistant-proposal-actions {
 	display: flex;
 	flex-wrap: wrap;

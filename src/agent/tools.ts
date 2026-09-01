@@ -2,12 +2,14 @@ import { MAX_TOOL_RESULT_CHARS } from '../constants';
 import type { ToolSpec } from '../llm/types';
 import { asString, isRecord, truncate } from '../utils';
 import { readNote, resolveMoveTarget } from '../vault/notes';
+import { applyTextPatch } from '../vault/patch';
 import { resolveMarkdownFile, sanitizeVaultPath } from '../vault/paths';
 import type VaultAssistantPlugin from '../main';
 import { formatHitsForPrompt } from '../rag/retriever';
 
 export type NoteProposal =
 	| { action: 'create' | 'update'; path: string; content: string }
+	| { action: 'patch'; path: string; oldText: string; newText: string; replaceAll?: boolean }
 	| { action: 'move'; path: string; destination: string };
 
 export type ToolOutcome =
@@ -81,6 +83,27 @@ export function getToolDefinitions(includeSearch: boolean): ToolSpec[] {
 			},
 		},
 		{
+			name: 'propose_patch_note',
+			description:
+				'Propose a surgical search/replace edit to an existing note. The user must click Apply in chat before anything is written. Use for small, targeted changes; use propose_update_note only when rewriting most or all of a note.',
+			parameters: {
+				type: 'object',
+				properties: {
+					path: { type: 'string', description: 'Existing vault path' },
+					old_text: {
+						type: 'string',
+						description: 'Exact text to find in the note (whitespace-sensitive)',
+					},
+					new_text: { type: 'string', description: 'Replacement text (empty string deletes old_text)' },
+					replace_all: {
+						type: 'boolean',
+						description: 'Replace all occurrences. Default false (requires a unique match).',
+					},
+				},
+				required: ['path', 'old_text', 'new_text'],
+			},
+		},
+		{
 			name: 'propose_move_note',
 			description:
 				'Propose moving an existing markdown note to another folder, keeping the filename. The user must click Apply in chat before anything is written. Use an empty destination_folder for the vault root.',
@@ -117,6 +140,8 @@ export async function executeTool(
 			return proposeNote(plugin, 'create', rawArgs);
 		case 'propose_update_note':
 			return proposeNote(plugin, 'update', rawArgs);
+		case 'propose_patch_note':
+			return proposePatch(plugin, rawArgs);
 		case 'propose_move_note':
 			return proposeMove(plugin, rawArgs);
 		default:
@@ -203,6 +228,43 @@ export function buildNoteProposal(
 	return { ok: true, proposal: { action, path: sanitized, content } };
 }
 
+/** Validate a patch proposal. Never writes disk. Verifies the patch applies to current content. */
+export async function buildPatchProposal(
+	plugin: VaultAssistantPlugin,
+	path: string | undefined,
+	oldText: string | undefined,
+	newText: string | undefined,
+	replaceAll = false,
+): Promise<ProposalBuildResult> {
+	if (!path || oldText === undefined || newText === undefined) {
+		return { ok: false, error: 'patch requires path, old_text, and new_text.' };
+	}
+	const sanitized = sanitizeVaultPath(path);
+	if (!sanitized) {
+		return { ok: false, error: 'Invalid path. Use a relative vault path to a markdown note.' };
+	}
+	if (!resolveMarkdownFile(plugin.app, sanitized)) {
+		return { ok: false, error: 'Note not found. Use propose_create_note for a new file.' };
+	}
+	let content: string;
+	try {
+		content = await readNote(plugin.app, sanitized);
+	} catch (error) {
+		return {
+			ok: false,
+			error: error instanceof Error ? error.message : 'Unable to read note.',
+		};
+	}
+	const patched = applyTextPatch(content, oldText, newText, replaceAll);
+	if (!patched.ok) {
+		return patched;
+	}
+	return {
+		ok: true,
+		proposal: { action: 'patch', path: sanitized, oldText, newText, replaceAll },
+	};
+}
+
 /** Validate a move proposal. Never writes disk. Empty destination folder means vault root. */
 export function buildMoveProposal(
 	plugin: VaultAssistantPlugin,
@@ -240,6 +302,25 @@ function proposeNote(
 		type: 'proposal',
 		proposal: result.proposal,
 		text: `Proposal recorded for ${action} at ${result.proposal.path}. The user will review it in chat and must click Apply before the file is written. Do not claim the note was saved.`,
+	};
+}
+
+async function proposePatch(plugin: VaultAssistantPlugin, rawArgs: unknown): Promise<ToolOutcome> {
+	const replaceAll = field(rawArgs, 'replace_all') === true;
+	const result = await buildPatchProposal(
+		plugin,
+		asString(field(rawArgs, 'path')),
+		asString(field(rawArgs, 'old_text')),
+		asString(field(rawArgs, 'new_text')),
+		replaceAll,
+	);
+	if (!result.ok) {
+		return { type: 'text', text: result.error };
+	}
+	return {
+		type: 'proposal',
+		proposal: result.proposal,
+		text: `Proposal recorded for patch at ${result.proposal.path}. The user will review it in chat and must click Apply before the file is written. Do not claim the note was saved.`,
 	};
 }
 

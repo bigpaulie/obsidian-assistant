@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-09-01
+
+### Added
+
+- `propose_patch_note` tool for surgical search/replace edits to existing notes (user must Apply).
+
 ### Changed
 
 - Vault search no longer stuffs retrieved chunks into every system prompt. When **Use local note search** is on, the model calls `search_notes` on demand, reducing token usage on general chat.
@@ -185,7 +191,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.10.1...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.0...HEAD
+[1.11.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.10.1...1.11.0
 [1.10.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.10.0...1.10.1
 [1.10.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.9.0...1.10.0
 [1.9.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.8.0...1.9.0
