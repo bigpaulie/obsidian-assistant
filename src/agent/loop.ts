@@ -12,7 +12,6 @@ import { buildUserContent, contentToDisplayText } from '../llm/content-parts';
 import type { ChatMessage, ChatToolCall } from '../llm/types';
 import { sumUsage, type TokenUsage } from '../llm/usage';
 import type VaultAssistantPlugin from '../main';
-import { retrieveContext } from '../rag/retriever';
 import { getActiveMarkdownPath } from '../vault/notes';
 import { collectReferencedFiles, loadReferencedNotes } from '../vault/references';
 import { loadSystemNoteExtra } from '../vault/system-note';
@@ -54,7 +53,7 @@ interface AgentTrace {
 
 /**
  * Chat loop with API tools (converted per provider).
- * Falls back to a single RAG-stuffed completion when the model rejects tools.
+ * Falls back to a single completion without tools when the model rejects tools.
  */
 export async function runAgent(
 	plugin: VaultAssistantPlugin,
@@ -71,15 +70,10 @@ export async function runAgent(
 		plugin.settings.excludeFolders,
 	);
 	const referencedNotes = await loadReferencedNotes(plugin.app, referencedFiles);
-	const ragHits =
-		plugin.settings.ragEnabled && options.userMessage.trim()
-			? retrieveContext(plugin.indexer, options.userMessage, plugin.settings.maxChunks)
-			: [];
 	const system = buildSystemPrompt({
 		userPrompt: systemNote?.content ?? plugin.settings.systemPrompt,
 		systemNotePath: systemNote?.path ?? null,
 		activeNotePath,
-		ragHits,
 		referencedNotes,
 	});
 
@@ -93,7 +87,7 @@ export async function runAgent(
 	const proposals: NoteProposal[] = [];
 	const trace: AgentTrace = {
 		startedAt: Date.now(),
-		ragHits: ragHits.length,
+		ragHits: 0,
 		rounds: 0,
 		tools: [],
 		fallback: false,
@@ -129,7 +123,8 @@ async function runWithTools(
 	options: AgentRunOptions,
 	trace: AgentTrace,
 ): Promise<AgentRunResult> {
-	for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+	const maxRounds = Math.max(1, Math.min(plugin.settings.maxToolRounds || MAX_TOOL_ROUNDS, 20));
+	for (let round = 0; round < maxRounds; round++) {
 		if (options.cancelled()) {
 			return stopped(messages, proposals, trace);
 		}
@@ -166,6 +161,9 @@ async function runWithTools(
 			setStatus(plugin, options, `Running ${name}…`);
 			debugLog(plugin.settings, 'agent.tool', { name, round: round + 1 });
 			const outcome = await executeTool(plugin, name, parseArgs(call, plugin));
+			if (outcome.type === 'text' && outcome.hitCount) {
+				trace.ragHits += outcome.hitCount;
+			}
 			if (outcome.type === 'proposal') {
 				proposals.push(outcome.proposal);
 			}

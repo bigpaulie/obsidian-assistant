@@ -162,6 +162,17 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 						},
 					},
 					{
+						name: 'Max tool rounds',
+						desc: 'How many model rounds may include tool calls before the assistant must answer.',
+						control: {
+							type: 'slider',
+							key: 'maxToolRounds',
+							min: 1,
+							max: 20,
+							step: 1,
+						},
+					},
+					{
 						name: 'Extra system prompt',
 						desc: 'Optional instructions appended to the built-in assistant prompt. A nearest system.md (from the active note’s folder upward) overrides this when present.',
 						control: {
@@ -220,7 +231,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 				items: [
 					{
 						name: 'Use local note search',
-						desc: 'Search your notes locally and send matching chunks with the chat request.',
+						desc: 'Expose the search_notes tool so the model can search your vault on demand.',
 						control: {
 							type: 'toggle',
 							key: 'ragEnabled',
@@ -228,7 +239,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 					},
 					{
 						name: 'Max chunks',
-						desc: 'How many note chunks to retrieve per question.',
+						desc: 'How many note chunks each search_notes call may return.',
 						control: {
 							type: 'slider',
 							key: 'maxChunks',
@@ -262,7 +273,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 				items: [
 					{
 						name: 'I understand what is sent to the provider',
-						desc: 'Indexing stays on this device. Chat sends your prompt, retrieved chunks, and any notes the agent reads to the selected provider. Nothing is written to your vault until you confirm in chat.',
+						desc: 'Indexing stays on this device. Chat sends your prompt, conversation history, notes you reference, and any notes the agent searches or reads to the selected provider. Nothing is written to your vault until you confirm in chat.',
 						control: {
 							type: 'toggle',
 							key: 'privacyAcknowledged',

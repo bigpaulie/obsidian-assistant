@@ -9,6 +9,7 @@ describe('DEFAULT_SETTINGS', () => {
 		expect(DEFAULT_SETTINGS.ollamaUrl).toBe(DEFAULT_OLLAMA_URL);
 		expect(DEFAULT_SETTINGS.temperature).toBe(0.3);
 		expect(DEFAULT_SETTINGS.maxTokens).toBe(2048);
+		expect(DEFAULT_SETTINGS.maxToolRounds).toBe(5);
 		expect(DEFAULT_SETTINGS.ragEnabled).toBe(true);
 		expect(DEFAULT_SETTINGS.maxChunks).toBe(8);
 		expect(DEFAULT_SETTINGS.privacyAcknowledged).toBe(false);
