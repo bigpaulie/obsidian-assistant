@@ -1,6 +1,6 @@
 {
 	"name": "vault-assistant",
-	"version": "1.10.1",
+	"version": "1.11.0",
 	"description": "OpenAI-compatible chat agent for Obsidian with local RAG and apply-gated note writes.",
 	"main": "main.js",
 	"type": "module",

@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	buildMoveProposal,
 	buildNoteProposal,
+	buildPatchProposal,
 	executeTool,
 	formatCurrentDateTime,
 	getToolDefinitions,
 } from '../../src/agent/tools';
 
-function pluginStub(files: Record<string, { path: string; extension: string }> = {}) {
+function pluginStub(
+	files: Record<string, { path: string; extension: string; content?: string }> = {},
+) {
 	const create = vi.fn();
 	const modify = vi.fn();
 	const process = vi.fn();
@@ -22,7 +25,13 @@ function pluginStub(files: Record<string, { path: string; extension: string }> =
 				create,
 				modify,
 				process,
-				cachedRead: vi.fn(),
+				cachedRead: vi.fn(async (file: { path: string }) => {
+					const entry = files[file.path];
+					if (!entry?.content) {
+						throw new Error('Note not found in the vault.');
+					}
+					return entry.content;
+				}),
 			},
 			fileManager: { renameFile },
 			workspace: { activeEditor: null },
@@ -39,6 +48,7 @@ describe('getToolDefinitions', () => {
 			'read_note',
 			'propose_create_note',
 			'propose_update_note',
+			'propose_patch_note',
 			'propose_move_note',
 		]);
 		expect(getToolDefinitions(false).map((tool) => tool.name)).toEqual([
@@ -46,6 +56,7 @@ describe('getToolDefinitions', () => {
 			'read_note',
 			'propose_create_note',
 			'propose_update_note',
+			'propose_patch_note',
 			'propose_move_note',
 		]);
 	});
@@ -79,6 +90,54 @@ describe('buildNoteProposal', () => {
 		expect(buildNoteProposal(plugin as never, 'update', 'Inbox/Old.md', 'new')).toEqual({
 			ok: true,
 			proposal: { action: 'update', path: 'Inbox/Old.md', content: 'new' },
+		});
+	});
+});
+
+describe('buildPatchProposal', () => {
+	it('rejects missing fields and invalid paths', async () => {
+		const { plugin } = pluginStub();
+		expect(await buildPatchProposal(plugin as never, undefined, 'old', 'new')).toEqual({
+			ok: false,
+			error: 'patch requires path, old_text, and new_text.',
+		});
+		expect((await buildPatchProposal(plugin as never, '../escape.md', 'old', 'new')).ok).toBe(false);
+	});
+
+	it('rejects when the note is absent or old_text is not found', async () => {
+		const { plugin } = pluginStub({
+			'Inbox/Note.md': { path: 'Inbox/Note.md', extension: 'md', content: 'hello world' },
+		});
+		expect(await buildPatchProposal(plugin as never, 'Missing.md', 'hello', 'hi')).toEqual({
+			ok: false,
+			error: 'Note not found. Use propose_create_note for a new file.',
+		});
+		expect(await buildPatchProposal(plugin as never, 'Inbox/Note.md', 'missing', 'hi')).toEqual({
+			ok: false,
+			error: 'Text to replace was not found in the note.',
+		});
+	});
+
+	it('rejects ambiguous matches without replace_all', async () => {
+		const { plugin } = pluginStub({
+			'Inbox/Note.md': { path: 'Inbox/Note.md', extension: 'md', content: 'foo bar foo' },
+		});
+		expect((await buildPatchProposal(plugin as never, 'Inbox/Note.md', 'foo', 'baz')).ok).toBe(false);
+	});
+
+	it('accepts a valid patch for an existing note', async () => {
+		const { plugin } = pluginStub({
+			'Inbox/Note.md': { path: 'Inbox/Note.md', extension: 'md', content: 'hello world' },
+		});
+		expect(await buildPatchProposal(plugin as never, 'Inbox/Note.md', 'world', 'there')).toEqual({
+			ok: true,
+			proposal: {
+				action: 'patch',
+				path: 'Inbox/Note.md',
+				oldText: 'world',
+				newText: 'there',
+				replaceAll: false,
+			},
 		});
 	});
 });
@@ -179,8 +238,8 @@ describe('executeTool', () => {
 
 	it('records write proposals without touching the vault', async () => {
 		const { plugin, create, modify, process, renameFile } = pluginStub({
-			'A.md': { path: 'A.md', extension: 'md' },
-			'Inbox/Note.md': { path: 'Inbox/Note.md', extension: 'md' },
+			'A.md': { path: 'A.md', extension: 'md', content: 'alpha' },
+			'Inbox/Note.md': { path: 'Inbox/Note.md', extension: 'md', content: 'hello world' },
 		});
 		const created = await executeTool(plugin as never, 'propose_create_note', {
 			path: 'B.md',
@@ -190,12 +249,21 @@ describe('executeTool', () => {
 			path: 'A.md',
 			content: 'changed',
 		});
+		const patched = await executeTool(plugin as never, 'propose_patch_note', {
+			path: 'Inbox/Note.md',
+			old_text: 'world',
+			new_text: 'there',
+		});
 		const moved = await executeTool(plugin as never, 'propose_move_note', {
 			path: 'Inbox/Note.md',
 			destination_folder: 'Archive',
 		});
 		expect(created).toMatchObject({ type: 'proposal', proposal: { action: 'create', path: 'B.md' } });
 		expect(updated).toMatchObject({ type: 'proposal', proposal: { action: 'update', path: 'A.md' } });
+		expect(patched).toMatchObject({
+			type: 'proposal',
+			proposal: { action: 'patch', path: 'Inbox/Note.md', oldText: 'world', newText: 'there' },
+		});
 		expect(moved).toMatchObject({
 			type: 'proposal',
 			proposal: { action: 'move', path: 'Inbox/Note.md', destination: 'Archive/Note.md' },

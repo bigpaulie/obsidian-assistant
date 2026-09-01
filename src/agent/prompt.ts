@@ -6,6 +6,7 @@ export const BUILTIN_SYSTEM_PROMPT = [
 	'Use read_note when you need the full text of a specific note.',
 	'Cite sources as [[wikilinks]] using note paths.',
 	'To create, update, or move notes, use the provided tools.',
+	'Use propose_patch_note for small, targeted edits (replace a phrase or section). Use propose_update_note only when rewriting most or all of a note.',
 	'Call get_current_datetime when you need the current date or time.',
 	'Never claim you already wrote or moved a file; the user must click Apply.',
 	'Stay inside the vault. Do not invent paths outside the user\'s notes.',
