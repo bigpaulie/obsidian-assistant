@@ -212,35 +212,65 @@
 	background-color: var(--background-secondary);
 }
 
-.vault-assistant-proposal-patch {
+.vault-assistant-proposal-diff {
 	display: flex;
 	flex-direction: column;
-	gap: var(--size-4-2);
-}
-
-.vault-assistant-proposal-patch-block {
-	display: flex;
-	flex-direction: column;
-	gap: var(--size-2-1);
-}
-
-.vault-assistant-proposal-patch-label {
-	font-size: var(--font-ui-smaller);
-	font-weight: var(--font-medium);
-	color: var(--text-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-}
-
-.vault-assistant-proposal-patch-text {
-	margin: 0;
-	white-space: pre-wrap;
-	word-break: break-word;
+	gap: 0;
 	font-family: var(--font-monospace);
 	font-size: var(--font-ui-smaller);
 }
 
-.vault-assistant-proposal-patch-meta {
+.vault-assistant-proposal-diff-line {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--size-2-2);
+	padding: var(--size-2-1) 0;
+	border-left: 2px solid transparent;
+	padding-left: var(--size-2-2);
+}
+
+.vault-assistant-proposal-diff-line--remove {
+	border-left-color: color-mix(in srgb, var(--text-error) 35%, transparent);
+}
+
+.vault-assistant-proposal-diff-line--remove .vault-assistant-proposal-diff-gutter {
+	color: var(--text-error);
+}
+
+.vault-assistant-proposal-diff-line--remove .vault-assistant-proposal-diff-text {
+	color: var(--text-muted);
+}
+
+.vault-assistant-proposal-diff-line--add {
+	border-left-color: color-mix(in srgb, var(--text-success) 35%, transparent);
+}
+
+.vault-assistant-proposal-diff-line--add .vault-assistant-proposal-diff-gutter {
+	color: var(--text-success);
+}
+
+.vault-assistant-proposal-diff-line--context {
+	color: var(--text-muted);
+	border-left-color: transparent;
+	padding-left: calc(var(--size-2-2) + 2px);
+}
+
+.vault-assistant-proposal-diff-gutter {
+	flex-shrink: 0;
+	min-width: 1.25em;
+	text-align: center;
+	user-select: none;
+}
+
+.vault-assistant-proposal-diff-text {
+	flex: 1;
+	min-width: 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.vault-assistant-proposal-diff-meta {
+	padding: var(--size-2-1) var(--size-2-1) 0;
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
 }

@@ -60,6 +60,14 @@ describe('getToolDefinitions', () => {
 			'propose_move_note',
 		]);
 	});
+
+	it('steers patch vs update in tool descriptions', () => {
+		const tools = getToolDefinitions(false);
+		const patch = tools.find((tool) => tool.name === 'propose_patch_note');
+		const update = tools.find((tool) => tool.name === 'propose_update_note');
+		expect(patch?.description).toContain('Do not call repeatedly');
+		expect(update?.description).toContain('Prefer this over multiple propose_patch_note');
+	});
 });
 
 describe('buildNoteProposal', () => {

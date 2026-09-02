@@ -11,6 +11,9 @@ describe('buildSystemPrompt', () => {
 		expect(prompt).toBe(BUILTIN_SYSTEM_PROMPT);
 		expect(prompt).toContain('search_notes');
 		expect(prompt).toContain('propose_patch_note');
+		expect(prompt).toContain('propose_update_note');
+		expect(prompt).toContain('three or more');
+		expect(prompt).toContain('replace_all');
 		expect(prompt).not.toContain('currently viewing');
 		expect(prompt).not.toContain('Retrieved vault context');
 		expect(prompt).not.toContain('explicitly referenced');

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Patch proposal preview in chat now shows a unified git-style diff (`-` removals, `+` additions, shared lines as context) instead of separate Replace/With blocks.
+- Agent guidance now steers patch for 1–2 surgical edits and update for multi-edit or structural changes, to reduce unnecessary tool-call rounds.
+
 ## [1.11.0] - 2026-09-01
 
 ### Added
