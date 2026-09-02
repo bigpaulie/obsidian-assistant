@@ -72,7 +72,7 @@ export function getToolDefinitions(includeSearch: boolean): ToolSpec[] {
 		{
 			name: 'propose_update_note',
 			description:
-				'Propose replacing the full contents of an existing note. The user must click Apply in chat before anything is written.',
+				'Propose replacing the full contents of an existing note. The user must click Apply in chat before anything is written. Prefer this over multiple propose_patch_note calls when making three or more edits, restructuring the note, or when you already have the full text from read_note.',
 			parameters: {
 				type: 'object',
 				properties: {
@@ -85,7 +85,7 @@ export function getToolDefinitions(includeSearch: boolean): ToolSpec[] {
 		{
 			name: 'propose_patch_note',
 			description:
-				'Propose a surgical search/replace edit to an existing note. The user must click Apply in chat before anything is written. Use for small, targeted changes; use propose_update_note only when rewriting most or all of a note.',
+				'Propose a surgical search/replace edit to an existing note. The user must click Apply in chat before anything is written. Use only for one localized edit or one replace_all of a single phrase. Do not call repeatedly for many edits—use propose_update_note instead.',
 			parameters: {
 				type: 'object',
 				properties: {

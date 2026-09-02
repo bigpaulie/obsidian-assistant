@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-09-02
+
+### Changed
+
+- Patch proposal preview in chat now shows a unified git-style diff (`-` removals, `+` additions, shared lines as context) instead of separate Replace/With blocks.
+- Agent guidance now steers patch for 1–2 surgical edits and update for multi-edit or structural changes, to reduce unnecessary tool-call rounds.
+
 ## [1.11.0] - 2026-09-01
 
 ### Added
@@ -191,7 +198,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.0...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.1...HEAD
+[1.11.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.0...1.11.1
 [1.11.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.10.1...1.11.0
 [1.10.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.10.0...1.10.1
 [1.10.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.9.0...1.10.0

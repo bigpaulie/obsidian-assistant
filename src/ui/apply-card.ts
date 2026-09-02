@@ -2,10 +2,9 @@ import { Component, MarkdownRenderer, Notice } from 'obsidian';
 import type { NoteProposal } from '../agent/tools';
 import type VaultAssistantPlugin from '../main';
 import { createNote, moveNote, readNote, updateNote } from '../vault/notes';
+import { buildPatchDiffLines, type PatchDiffLine } from '../vault/patch-diff';
 import { applyTextPatch } from '../vault/patch';
 import { dirname } from '../vault/paths';
-
-const PATCH_PREVIEW_MAX_CHARS = 400;
 
 export function renderApplyCard(
 	plugin: VaultAssistantPlugin,
@@ -107,23 +106,33 @@ function appliedNotice(action: NoteProposal['action'], path: string): string {
 }
 
 function renderPatchPreview(card: HTMLElement, proposal: Extract<NoteProposal, { action: 'patch' }>): void {
-	const preview = card.createDiv({ cls: 'vault-assistant-proposal-preview vault-assistant-proposal-patch' });
-	const oldBlock = preview.createDiv({ cls: 'vault-assistant-proposal-patch-block' });
-	oldBlock.createDiv({ cls: 'vault-assistant-proposal-patch-label', text: 'Replace' });
-	oldBlock.createEl('pre', { cls: 'vault-assistant-proposal-patch-text', text: truncatePatchText(proposal.oldText) });
-	const newBlock = preview.createDiv({ cls: 'vault-assistant-proposal-patch-block' });
-	newBlock.createDiv({ cls: 'vault-assistant-proposal-patch-label', text: 'With' });
-	newBlock.createEl('pre', { cls: 'vault-assistant-proposal-patch-text', text: truncatePatchText(proposal.newText) });
+	const preview = card.createDiv({ cls: 'vault-assistant-proposal-preview vault-assistant-proposal-diff' });
+	const diffLines = buildPatchDiffLines(proposal.oldText, proposal.newText);
+	for (const line of diffLines) {
+		renderPatchDiffLine(preview, line);
+	}
 	if (proposal.replaceAll) {
-		preview.createDiv({ cls: 'vault-assistant-proposal-patch-meta', text: 'All occurrences' });
+		preview.createDiv({ cls: 'vault-assistant-proposal-diff-meta', text: 'All occurrences' });
 	}
 }
 
-function truncatePatchText(text: string): string {
-	if (text.length <= PATCH_PREVIEW_MAX_CHARS) {
-		return text;
+function renderPatchDiffLine(container: HTMLElement, line: PatchDiffLine): void {
+	const row = container.createDiv({
+		cls: `vault-assistant-proposal-diff-line vault-assistant-proposal-diff-line--${line.kind}`,
+	});
+	row.createSpan({ cls: 'vault-assistant-proposal-diff-gutter', text: diffGutter(line.kind) });
+	row.createSpan({ cls: 'vault-assistant-proposal-diff-text', text: line.text });
+}
+
+function diffGutter(kind: PatchDiffLine['kind']): string {
+	switch (kind) {
+		case 'remove':
+			return '-';
+		case 'add':
+			return '+';
+		case 'context':
+			return ' ';
 	}
-	return `${text.slice(0, PATCH_PREVIEW_MAX_CHARS)}…`;
 }
 
 async function applyProposal(plugin: VaultAssistantPlugin, proposal: NoteProposal) {
