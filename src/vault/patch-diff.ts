@@ -32,28 +32,28 @@ export function buildPatchDiffLines(
 
 	const lines: PatchDiffLine[] = [];
 	for (let index = 0; index < prefix; index += 1) {
-		const text = oldLines.at(index);
+		const text = oldLines[index];
 		if (text === undefined) {
 			break;
 		}
 		lines.push({ kind: 'context', text });
 	}
 	for (let index = prefix; index < oldSuffix; index += 1) {
-		const text = oldLines.at(index);
+		const text = oldLines[index];
 		if (text === undefined) {
 			break;
 		}
 		lines.push({ kind: 'remove', text });
 	}
 	for (let index = prefix; index < newSuffix; index += 1) {
-		const text = newLines.at(index);
+		const text = newLines[index];
 		if (text === undefined) {
 			break;
 		}
 		lines.push({ kind: 'add', text });
 	}
 	for (let index = oldSuffix; index < oldLines.length; index += 1) {
-		const text = oldLines.at(index);
+		const text = oldLines[index];
 		if (text === undefined) {
 			break;
 		}
