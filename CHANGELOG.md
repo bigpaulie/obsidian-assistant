@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-09-02
+
+### Fixed
+
+- Obsidian scorecard ESLint warnings in patch diff preview: replaced ES2022 `Array.prototype.at()` with bracket indexing so type-checking under the project's ES2021 lib stays safe.
+
 ## [1.11.1] - 2026-09-02
 
 ### Changed
@@ -198,7 +204,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.1...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.2...HEAD
+[1.11.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.1...1.11.2
 [1.11.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.0...1.11.1
 [1.11.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.10.1...1.11.0
 [1.10.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.10.0...1.10.1
