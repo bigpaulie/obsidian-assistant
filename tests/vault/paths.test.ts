@@ -1,5 +1,6 @@
 import type { App, TFile } from 'obsidian';
 import { describe, expect, it } from 'vitest';
+import { DEBUG_NOTES_FOLDER } from '../../src/constants';
 import {
 	canonicalizeExcludeFolders,
 	dirname,
@@ -100,6 +101,13 @@ describe('isExcludedPath', () => {
 		expect(isExcludedPath('archive', ['archive'], '.obsidian')).toBe(true);
 		expect(isExcludedPath('notes/a.md', ['archive'], '.obsidian')).toBe(false);
 		expect(isExcludedPath('archive-other/a.md', ['archive'], '.obsidian')).toBe(false);
+	});
+
+	it('excludes debug notes so they are not indexed or sent back', () => {
+		expect(isExcludedPath(`${DEBUG_NOTES_FOLDER}/2026-09-27 15-04-02.md`, [], '.obsidian')).toBe(true);
+		expect(isExcludedPath(DEBUG_NOTES_FOLDER, [], '.obsidian')).toBe(true);
+		expect(isExcludedPath('Vault Assistant/Debug-other/a.md', [], '.obsidian')).toBe(false);
+		expect(isExcludedPath('Vault Assistant/Other.md', [], '.obsidian')).toBe(false);
 	});
 });
 

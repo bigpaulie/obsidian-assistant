@@ -1,5 +1,6 @@
 import { DEFAULT_OLLAMA_URL } from '../constants';
 import { debugLog, type DebugPayload } from '../debug';
+import type { DebugSession } from '../debug-note';
 import type { VaultAssistantSettings } from '../settings';
 import { EMPTY_MODEL_REPLY, LlmError, apiErrorMessage, errorMessage } from './errors';
 import { chatCompletionsReasoningEffort, completionSampling, usesResponsesApi } from './model-params';
@@ -25,9 +26,13 @@ export interface ChatResult {
  * Thin OpenAI-compatible client using Obsidian `requestUrl` (CORS-safe).
  * Converts canonical tools to Chat Completions or Responses wire format.
  * Never logs request headers or API keys.
+ * An optional debug session stores redacted bodies only, never headers.
  */
 export class LlmClient {
-	constructor(private readonly settings: VaultAssistantSettings) {}
+	constructor(
+		private readonly settings: VaultAssistantSettings,
+		private readonly debugSession?: DebugSession,
+	) {}
 
 	async chat(request: ChatRequest): Promise<ChatResult> {
 		this.assertReady();
@@ -71,8 +76,17 @@ export class LlmClient {
 		const startedAt = Date.now();
 		debugLog(this.settings, 'chat.start', debug);
 
+		let captured = false;
 		try {
 			const { json, status } = await postJson(endpoint, config.headers, body);
+			this.recordChatExchange({
+				api: 'completions',
+				endpoint,
+				request: body,
+				response: json,
+				httpStatus: status,
+			});
+			captured = true;
 			const durationMs = Date.now() - startedAt;
 			const parsed = json as ChatCompletionResponse;
 			const choice = parsed.choices?.[0];
@@ -102,6 +116,9 @@ export class LlmClient {
 				durationMs,
 			);
 		} catch (error) {
+			if (!captured) {
+				this.recordChatExchange({ api: 'completions', endpoint, request: body, error });
+			}
 			throw this.wrapError(error, debug, startedAt);
 		}
 	}
@@ -133,8 +150,17 @@ export class LlmClient {
 		const startedAt = Date.now();
 		debugLog(this.settings, 'chat.start', debug);
 
+		let captured = false;
 		try {
 			const { json, status } = await postJson(endpoint, config.headers, body);
+			this.recordChatExchange({
+				api: 'responses',
+				endpoint,
+				request: body,
+				response: json,
+				httpStatus: status,
+			});
+			captured = true;
 			const durationMs = Date.now() - startedAt;
 			const parsed = json as { output?: unknown[]; status?: string; error?: { message?: string }; usage?: unknown };
 			const { message, finishReason, thinking } = responsesOutputToMessage(parsed.output, parsed.status);
@@ -147,8 +173,33 @@ export class LlmClient {
 				durationMs,
 			);
 		} catch (error) {
+			if (!captured) {
+				this.recordChatExchange({ api: 'responses', endpoint, request: body, error });
+			}
 			throw this.wrapError(error, debug, startedAt);
 		}
+	}
+
+	private recordChatExchange(input: {
+		api: 'completions' | 'responses';
+		endpoint: string;
+		request: unknown;
+		response?: unknown;
+		httpStatus?: number;
+		error?: unknown;
+	}): void {
+		if (!this.debugSession) {
+			return;
+		}
+		const httpStatus = input.error instanceof LlmError ? input.error.status ?? input.httpStatus : input.httpStatus;
+		this.debugSession.recordExchange({
+			api: input.api,
+			endpoint: input.endpoint,
+			request: input.request,
+			response: input.error === undefined ? input.response : undefined,
+			httpStatus,
+			error: input.error === undefined ? undefined : errorMessage(input.error),
+		});
 	}
 
 	private finishReply(

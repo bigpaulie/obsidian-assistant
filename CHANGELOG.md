@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-09-27
+
+### Added
+
+- Debug mode writes one vault note per chat send under `Vault Assistant/Debug`, including each model request, response, and tool call. API keys are removed, and the folder is excluded from search.
+
 ## [1.11.2] - 2026-09-02
 
 ### Fixed
@@ -204,7 +210,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin notes with **Add note**, **Add open note**, or `[[wikilinks]]` on desktop.
 - Propose new or updated notes in chat; nothing is written until you apply it.
 
-[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.2...HEAD
+[unreleased]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.3...HEAD
+[1.11.3]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.2...1.11.3
 [1.11.2]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.1...1.11.2
 [1.11.1]: https://github.com/bigpaulie/obsidian-assistant/compare/1.11.0...1.11.1
 [1.11.0]: https://github.com/bigpaulie/obsidian-assistant/compare/1.10.1...1.11.0
