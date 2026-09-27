@@ -1,4 +1,5 @@
 import { App, TFile, normalizePath } from 'obsidian';
+import { DEBUG_NOTES_FOLDER } from '../constants';
 import { parseFolderList } from '../utils';
 
 const WINDOWS_ABS = /^[a-zA-Z]:[\\/]/;
@@ -69,6 +70,10 @@ export function serializeExcludeFolders(selected: string[]): string {
 export function isExcludedPath(path: string, excludeFolders: string[], configDir: string): boolean {
 	const config = normalizePath(configDir);
 	if (path === config || path.startsWith(`${config}/`)) {
+		return true;
+	}
+	const debugNotes = normalizePath(DEBUG_NOTES_FOLDER);
+	if (path === debugNotes || path.startsWith(`${debugNotes}/`)) {
 		return true;
 	}
 	for (const folder of excludeFolders) {

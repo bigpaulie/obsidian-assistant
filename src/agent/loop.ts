@@ -1,5 +1,6 @@
 import { MAX_TOOL_ROUNDS } from '../constants';
 import { debugLog, type DebugPayload } from '../debug';
+import { DebugSession } from '../debug-note';
 import {
 	EMPTY_MODEL_REPLY,
 	LlmClient,
@@ -59,7 +60,8 @@ export async function runAgent(
 	plugin: VaultAssistantPlugin,
 	options: AgentRunOptions,
 ): Promise<AgentRunResult> {
-	const client = new LlmClient(plugin.settings);
+	const session = plugin.settings.debugMode ? new DebugSession(plugin.settings) : undefined;
+	const client = new LlmClient(plugin.settings, session);
 	const activeNotePath = getActiveMarkdownPath(plugin.app);
 	const systemNote = await loadSystemNoteExtra(plugin.app, activeNotePath);
 	const referencedFiles = collectReferencedFiles(
@@ -96,21 +98,29 @@ export async function runAgent(
 	};
 
 	try {
-		return await runWithTools(plugin, client, messages, tools, proposals, options, trace);
+		let result: AgentRunResult;
+		try {
+			result = await runWithTools(plugin, client, messages, tools, proposals, options, trace, session);
+		} catch (error) {
+			if (options.cancelled()) {
+				result = stopped(messages, proposals, trace);
+			} else if (isLikelyToolsUnsupported(error)) {
+				trace.fallback = true;
+				debugLog(plugin.settings, 'agent.toolsUnsupported', {
+					error: errorMessage(error),
+					status: error instanceof LlmError ? error.status : undefined,
+				});
+				setStatus(plugin, options, 'Provider rejected tools; answering without tools.');
+				result = await runWithoutTools(client, messages, plugin, options, trace);
+			} else {
+				throw error;
+			}
+		}
+		return await finishDebug(plugin, session, result);
 	} catch (error) {
-		if (options.cancelled()) {
-			return stopped(messages, proposals, trace);
-		}
-		if (!isLikelyToolsUnsupported(error)) {
-			throw error;
-		}
-		trace.fallback = true;
-		debugLog(plugin.settings, 'agent.toolsUnsupported', {
-			error: errorMessage(error),
-			status: error instanceof LlmError ? error.status : undefined,
-		});
-		setStatus(plugin, options, 'Provider rejected tools; answering without tools.');
-		return runWithoutTools(client, messages, plugin, options, trace);
+		await commitDebugNote(plugin, session, debugFromTrace(trace));
+		attachDebugNoteToError(error, session);
+		throw error;
 	}
 }
 
@@ -122,6 +132,7 @@ async function runWithTools(
 	proposals: NoteProposal[],
 	options: AgentRunOptions,
 	trace: AgentTrace,
+	session?: DebugSession,
 ): Promise<AgentRunResult> {
 	const maxRounds = Math.max(1, Math.min(plugin.settings.maxToolRounds || MAX_TOOL_ROUNDS, 20));
 	for (let round = 0; round < maxRounds; round++) {
@@ -160,6 +171,7 @@ async function runWithTools(
 			trace.tools.push(name);
 			setStatus(plugin, options, `Running ${name}…`);
 			debugLog(plugin.settings, 'agent.tool', { name, round: round + 1 });
+			session?.recordTool(name, toolParametersForDebug(call));
 			const outcome = await executeTool(plugin, name, parseArgs(call, plugin));
 			if (outcome.type === 'text' && outcome.hitCount) {
 				trace.ragHits += outcome.hitCount;
@@ -225,6 +237,18 @@ function rememberTurn(trace: AgentTrace, result: ChatResult): void {
 	trace.usage = sumUsage([trace.usage, result.usage]);
 }
 
+function toolParametersForDebug(call: ChatToolCall): unknown {
+	const raw = call.function.arguments?.trim();
+	if (!raw) {
+		return {};
+	}
+	try {
+		return JSON.parse(raw) as unknown;
+	} catch {
+		return raw;
+	}
+}
+
 function parseArgs(call: ChatToolCall, plugin: VaultAssistantPlugin): unknown {
 	const raw = call.function.arguments?.trim();
 	if (!raw) {
@@ -266,19 +290,77 @@ function finished(
 		usage: trace.usage,
 		model: trace.model,
 		systemNotePath: trace.systemNotePath,
-		debug: {
-			durationMs: Date.now() - trace.startedAt,
-			rounds: trace.rounds,
-			tools: trace.tools.join(', ') || 'none',
-			ragHits: trace.ragHits,
-			fallback: trace.fallback,
-			finishReason: trace.finishReason,
-			promptTokens: trace.usage?.promptTokens,
-			completionTokens: trace.usage?.completionTokens,
-			totalTokens: trace.usage?.totalTokens,
-			systemNotePath: trace.systemNotePath ?? undefined,
-		},
+		debug: debugFromTrace(trace),
 	};
+}
+
+function debugFromTrace(trace: AgentTrace): DebugPayload {
+	return {
+		durationMs: Date.now() - trace.startedAt,
+		rounds: trace.rounds,
+		tools: trace.tools.join(', ') || 'none',
+		ragHits: trace.ragHits,
+		fallback: trace.fallback,
+		finishReason: trace.finishReason,
+		promptTokens: trace.usage?.promptTokens,
+		completionTokens: trace.usage?.completionTokens,
+		totalTokens: trace.usage?.totalTokens,
+		systemNotePath: trace.systemNotePath ?? undefined,
+	};
+}
+
+async function finishDebug(
+	plugin: VaultAssistantPlugin,
+	session: DebugSession | undefined,
+	result: AgentRunResult,
+): Promise<AgentRunResult> {
+	await commitDebugNote(plugin, session, result.debug);
+	applyDebugNote(result.debug, session);
+	return result;
+}
+
+async function commitDebugNote(
+	plugin: VaultAssistantPlugin,
+	session: DebugSession | undefined,
+	summary: DebugPayload,
+): Promise<void> {
+	if (!session) {
+		return;
+	}
+	await session.write(plugin.app, summary);
+}
+
+function applyDebugNote(debug: DebugPayload, session: DebugSession | undefined): void {
+	if (!session) {
+		return;
+	}
+	if (session.notePath) {
+		debug.debugNote = session.notePath;
+	}
+	if (session.noteError) {
+		debug.debugNoteError = session.noteError;
+	}
+}
+
+function attachDebugNoteToError(error: unknown, session: DebugSession | undefined): void {
+	if (!session || !(error instanceof LlmError)) {
+		return;
+	}
+	const extra: DebugPayload = {};
+	if (session.notePath) {
+		extra.debugNote = session.notePath;
+	}
+	if (session.noteError) {
+		extra.debugNoteError = session.noteError;
+	}
+	if (!extra.debugNote && !extra.debugNoteError) {
+		return;
+	}
+	if (error.debug) {
+		Object.assign(error.debug, extra);
+		return;
+	}
+	Object.assign(error, { debug: extra });
 }
 
 export { errorMessage };

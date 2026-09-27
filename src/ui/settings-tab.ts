@@ -273,7 +273,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 				items: [
 					{
 						name: 'I understand what is sent to the provider',
-						desc: 'Indexing stays on this device. Chat sends your prompt, conversation history, notes you reference, and any notes the agent searches or reads to the selected provider. Nothing is written to your vault until you confirm in chat.',
+						desc: 'Indexing stays on this device. Chat sends your prompt, conversation history, notes you reference, and any notes the agent searches or reads to the selected provider. Nothing is written to your vault until you confirm in chat, except a debug note when Debug mode is on.',
 						control: {
 							type: 'toggle',
 							key: 'privacyAcknowledged',
@@ -288,7 +288,7 @@ export class VaultAssistantSettingTab extends PluginSettingTab {
 				items: [
 					{
 						name: 'Debug mode',
-						desc: 'Show a Debug card in chat after each reply (endpoint, timing, tools). Console lines need DevTools log level Verbose (Ctrl+Shift+I). Off by default. Never logs API keys or note contents.',
+						desc: 'Show a Debug card in chat after each reply (endpoint, timing, tools) and save a vault note with each request, response, and tool call. API keys are removed from the note. Console lines stay metadata-only and need DevTools log level Verbose (Ctrl+Shift+I). Off by default.',
 						render: (setting) => {
 							setting.addToggle((toggle) => {
 								toggle.setValue(this.plugin.settings.debugMode);

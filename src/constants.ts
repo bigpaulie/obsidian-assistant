@@ -1,4 +1,6 @@
 export const PLUGIN_NAME = 'Vault Assistant';
+/** Per-send debug notes. Excluded from search so they are not sent back to the model. */
+export const DEBUG_NOTES_FOLDER = 'Vault Assistant/Debug';
 export const VIEW_TYPE_CHAT = 'vault-assistant-chat';
 export const INDEX_FILE_NAME = 'search-index.json';
 export const CHAT_HISTORY_FILE_NAME = 'chat-history.json';
